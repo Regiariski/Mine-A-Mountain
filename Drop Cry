@@ -1,0 +1,78 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
+
+-- 1. Membuat UI Tombol On/Off (Ukuran Kecil)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CrystalAutoDropGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 100, 0, 30) -- Ukuran diperkecil (100x30)
+toggleButton.Position = UDim2.new(0, 15, 0, 15) -- Pojok kiri atas
+toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah (Off)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 13 -- Ukuran font disesuaikan
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.Text = "Auto: OFF"
+toggleButton.Parent = screenGui
+
+-- Sudut tombol melengkung
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 6)
+uiCorner.Parent = toggleButton
+
+-- 2. Logika Toggle & Auto Drop
+local isRunning = false
+
+local function runAutoDrop()
+	while isRunning do
+		local inventory = player:FindFirstChild("Inventory") 
+		  or player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("Inventory")
+		  or player:FindFirstChild("Backpack")
+
+		if inventory then
+			local count = 0
+			for _, item in ipairs(inventory:GetDescendants()) do
+				if not isRunning then break end
+				
+				if item:IsA("TextButton") or item:IsA("Frame") or item:IsA("Model") or item:IsA("IntValue") or item:IsA("StringValue") then
+					local itemName = item.Name
+					
+					if string.match(itemName, "%[.*kg%]") or string.match(itemName, "%[S%]") then
+						local args = {
+							itemName
+						}
+						remote:FireServer(unpack(args))
+						count = count + 1
+						task.wait(0.15)
+					end
+				end
+			end
+			print("Siklus selesai. Berhasil memproses " .. count .. " item crystal.")
+		else
+			warn("Folder inventory tidak ditemukan otomatis.")
+		end
+		
+		task.wait(1) 
+	end
+end
+
+-- 3. Event ketika tombol diklik
+toggleButton.MouseButton1Click:Connect(function()
+	isRunning = not isRunning
+	
+	if isRunning then
+		toggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Hijau (On)
+		toggleButton.Text = "Auto: ON"
+		task.spawn(runAutoDrop)
+	else
+		toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah (Off)
+		toggleButton.Text = "Auto: OFF"
+	end
+end)
