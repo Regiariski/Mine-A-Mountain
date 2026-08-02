@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine a Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Collect Rune)
+-- Mine a Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Drop Rune)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,8 @@ local Config = {
 	NocturniteFarm = false,
 	CollectRune = false,
 	MutasiTerminus = false,
-	NocturniteESP = false
+	NocturniteESP = false,
+	DropRune = false
 }
 
 local function saveConfig()
@@ -87,7 +88,7 @@ MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BackgroundTransparency = 0.05
 MainFrame.Position = UDim2.new(0, 62, 0, 10)
-MainFrame.Size = UDim2.new(0, 240, 0, 235)
+MainFrame.Size = UDim2.new(0, 240, 0, 275)
 MainFrame.Visible = true
 
 local MainCorner = Instance.new("UICorner")
@@ -167,7 +168,7 @@ local function createPageContainer()
 	container.BackgroundTransparency = 1
 	container.Position = UDim2.new(0, 98, 0, 42)
 	container.Size = UDim2.new(1, -106, 1, -50)
-	container.CanvasSize = UDim2.new(0, 0, 0, 210)
+	container.CanvasSize = UDim2.new(0, 0, 0, 280)
 	container.ScrollBarThickness = 2
 	container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 	container.Visible = false
@@ -184,7 +185,8 @@ local MiningPage = createPageContainer()
 MiningPage.Visible = true
 
 local ESPPage = createPageContainer()
-local RejoinPage = createPageContainer()
+local RunePage = createPageContainer()
+local RejoinPage = createPageContainer() -- Rejoin dipindah ke urutan terakhir
 
 local function createCategoryLabel(parent, text)
 	local lbl = Instance.new("TextLabel")
@@ -200,6 +202,7 @@ end
 
 createCategoryLabel(MiningPage, "Autopilot / Actions")
 createCategoryLabel(ESPPage, "Visual / ESP")
+createCategoryLabel(RunePage, "Rune Management")
 createCategoryLabel(RejoinPage, "Server Controls")
 
 local function createToggleFeature(parent, labelText)
@@ -264,7 +267,184 @@ local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Run
 local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminus")
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
 
--- Tombol Aksi Rejoin Sekali Klik
+-- ====================================================================
+-- FITUR DROP RUNE (DI HALAMAN RUNE)
+-- ====================================================================
+local runeList = {
+	"Weight Rune",
+	"Detonation Rune",
+	"Preservation Rune",
+	"Colossus Rune",
+	"Haste Rune",
+	"Warmth Rune",
+	"Luck Rune",
+	"Excavator Rune",
+	"Fortune Rune"
+}
+
+local selectedRunes = {}
+local isDropRuneRunning = false
+local isDropdownOpen = false
+
+local DropRuneContainer = Instance.new("Frame")
+DropRuneContainer.Parent = RunePage
+DropRuneContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+DropRuneContainer.Size = UDim2.new(1, -8, 0, 32)
+DropRuneContainer.BorderSizePixel = 0
+
+local DropRuneCorner = Instance.new("UICorner")
+DropRuneCorner.CornerRadius = UDim.new(0, 6)
+DropRuneCorner.Parent = DropRuneContainer
+
+local DropRuneStroke = Instance.new("UIStroke")
+DropRuneStroke.Color = Color3.fromRGB(45, 45, 60)
+DropRuneStroke.Thickness = 1
+DropRuneStroke.Parent = DropRuneContainer
+
+local DropRuneLabel = Instance.new("TextLabel")
+DropRuneLabel.Parent = DropRuneContainer
+DropRuneLabel.BackgroundTransparency = 1
+DropRuneLabel.Position = UDim2.new(0, 8, 0, 0)
+DropRuneLabel.Size = UDim2.new(1, -45, 1, 0)
+DropRuneLabel.Font = Enum.Font.GothamMedium
+DropRuneLabel.Text = "Drop Rune"
+DropRuneLabel.TextColor3 = Color3.fromRGB(220, 220, 235)
+DropRuneLabel.TextSize = 9
+DropRuneLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local DropSwitchBg = Instance.new("TextButton")
+DropSwitchBg.Size = UDim2.new(0, 32, 0, 20)
+DropSwitchBg.Position = UDim2.new(1, -38, 0.5, -10)
+DropSwitchBg.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+DropSwitchBg.Text = ""
+DropSwitchBg.AutoButtonColor = false
+DropSwitchBg.Parent = DropRuneContainer
+
+local DropSwitchBgCorner = Instance.new("UICorner")
+DropSwitchBgCorner.CornerRadius = UDim.new(1, 0)
+DropSwitchBgCorner.Parent = DropSwitchBg
+
+local DropSwitchCircle = Instance.new("Frame")
+DropSwitchCircle.Size = UDim2.new(0, 16, 0, 16)
+DropSwitchCircle.Position = UDim2.new(0, 2, 0.5, -8)
+DropSwitchCircle.BackgroundColor3 = Color3.fromRGB(150, 150, 170)
+DropSwitchCircle.BorderSizePixel = 0
+DropSwitchCircle.Parent = DropSwitchBg
+
+local DropSwitchCircleCorner = Instance.new("UICorner")
+DropSwitchCircleCorner.CornerRadius = UDim.new(1, 0)
+DropSwitchCircleCorner.Parent = DropSwitchCircle
+
+local DropdownButton = Instance.new("TextButton")
+DropdownButton.Parent = RunePage
+DropdownButton.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+DropdownButton.Size = UDim2.new(1, -8, 0, 32)
+DropdownButton.TextColor3 = Color3.fromRGB(220, 220, 235)
+DropdownButton.Text = "  Select Runes ▾"
+DropdownButton.TextXAlignment = Enum.TextXAlignment.Left
+DropdownButton.TextSize = 9
+DropdownButton.Font = Enum.Font.GothamMedium
+DropdownButton.AutoButtonColor = false
+
+local DropdownCorner = Instance.new("UICorner")
+DropdownCorner.CornerRadius = UDim.new(0, 6)
+DropdownCorner.Parent = DropdownButton
+
+local DropdownStroke = Instance.new("UIStroke")
+DropdownStroke.Color = Color3.fromRGB(45, 45, 60)
+DropdownStroke.Thickness = 1
+DropdownStroke.Parent = DropdownButton
+
+local RuneScrollingFrame = Instance.new("ScrollingFrame")
+RuneScrollingFrame.Parent = RunePage
+RuneScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+RuneScrollingFrame.Size = UDim2.new(1, -8, 0, 130)
+RuneScrollingFrame.BorderSizePixel = 0
+RuneScrollingFrame.Visible = false
+RuneScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #runeList * 28)
+RuneScrollingFrame.ScrollBarThickness = 2
+RuneScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
+
+local RuneUIListLayout = Instance.new("UIListLayout")
+RuneUIListLayout.Parent = RuneScrollingFrame
+RuneUIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+RuneUIListLayout.Padding = UDim.new(0, 3)
+
+for _, runeName in ipairs(runeList) do
+	selectedRunes[runeName] = false
+	
+	local ItemButton = Instance.new("TextButton")
+	ItemButton.Parent = RuneScrollingFrame
+	ItemButton.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
+	ItemButton.Size = UDim2.new(1, -4, 0, 24)
+	ItemButton.TextColor3 = Color3.fromRGB(180, 180, 195)
+	ItemButton.Text = "  [ ] " .. runeName
+	ItemButton.TextXAlignment = Enum.TextXAlignment.Left
+	ItemButton.TextSize = 9
+	ItemButton.Font = Enum.Font.Gotham
+	
+	local ItemCorner = Instance.new("UICorner")
+	ItemCorner.CornerRadius = UDim.new(0, 4)
+	ItemCorner.Parent = ItemButton
+	
+	ItemButton.MouseButton1Click:Connect(function()
+		selectedRunes[runeName] = not selectedRunes[runeName]
+		if selectedRunes[runeName] then
+			ItemButton.Text = "  [✓] " .. runeName
+			ItemButton.TextColor3 = Color3.fromRGB(80, 255, 150)
+			ItemButton.BackgroundColor3 = Color3.fromRGB(38, 50, 42)
+		else
+			ItemButton.Text = "  [ ] " .. runeName
+			ItemButton.TextColor3 = Color3.fromRGB(180, 180, 195)
+			ItemButton.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
+		end
+	end)
+end
+
+local function updateDropRuneToggle()
+	local info = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	if isDropRuneRunning then
+		TweenService:Create(DropSwitchBg, info, {BackgroundColor3 = Color3.fromRGB(50, 140, 80)}):Play()
+		TweenService:Create(DropSwitchCircle, info, {Position = UDim2.new(1, -18, 0.5, -8), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+	else
+		TweenService:Create(DropSwitchBg, info, {BackgroundColor3 = Color3.fromRGB(45, 45, 60)}):Play()
+		TweenService:Create(DropSwitchCircle, info, {Position = UDim2.new(0, 2, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 170)}):Play()
+	end
+end
+
+DropdownButton.MouseButton1Click:Connect(function()
+	isDropdownOpen = not isDropdownOpen
+	RuneScrollingFrame.Visible = isDropdownOpen
+	if isDropdownOpen then
+		DropdownButton.Text = "  Select Runes ▴"
+	else
+		DropdownButton.Text = "  Select Runes ▾"
+	end
+end)
+
+DropSwitchBg.MouseButton1Click:Connect(function()
+	isDropRuneRunning = not isDropRuneRunning
+	Config.DropRune = isDropRuneRunning
+	saveConfig()
+	updateDropRuneToggle()
+end)
+
+local crystalDropRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
+task.spawn(function()
+	while true do
+		if isDropRuneRunning and crystalDropRemote then
+			for runeName, isSelected in pairs(selectedRunes) do
+				if isSelected and isDropRuneRunning then
+					pcall(function()
+						crystalDropRemote:FireServer(runeName)
+					end)
+				end
+			end
+		end
+		task.wait(1)
+	end
+end)
+
 local function createActionButton(parent, labelText, callback)
 	local container = Instance.new("TextButton")
 	container.Parent = parent
@@ -352,7 +532,8 @@ end
 
 createSidebarButton("Mining", MiningPage, true)
 createSidebarButton("ESP", ESPPage, false)
-createSidebarButton("Rejoin", RejoinPage, false)
+createSidebarButton("Rune", RunePage, false)
+createSidebarButton("Rejoin", RejoinPage, false) -- Rejoin dipindah ke tombol urutan paling bawah di Sidebar
 
 local isOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
@@ -366,7 +547,6 @@ end)
 
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
 
--- 1. FITUR AUTO DROP
 local isAutoDropRunning = false
 local function runAutoDrop()
 	while isAutoDropRunning do
@@ -398,7 +578,6 @@ Btn1.MouseButton1Click:Connect(function()
 	if isAutoDropRunning then task.spawn(runAutoDrop) end
 end)
 
--- 2. FITUR AUTO FARM (GENERAL)
 local isFarmRunning = false
 task.spawn(function()
 	while true do
@@ -437,7 +616,6 @@ Btn2.MouseButton1Click:Connect(function()
 	setToggleState(Bg2, Circle2, isFarmRunning)
 end)
 
--- 3. FITUR AUTO SELL
 local function getRootPart()
 	local character = player.Character or player.CharacterAdded:Wait()
 	return character:FindFirstChild("HumanoidRootPart")
@@ -497,7 +675,6 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
--- 4. FITUR NOCTURNITE FARM
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
@@ -661,11 +838,9 @@ BtnNocturnite.MouseButton1Click:Connect(function()
 	end
 end)
 
--- 5. FITUR COLLECT RUNE
 local isCollectRuneRunning = false
 local isCollectingRuneState = false
 
--- NoClip khusus saat mengambil rune
 RunService.Stepped:Connect(function()
 	if isCollectingRuneState then
 		local character = player.Character
@@ -747,7 +922,6 @@ BtnRune.MouseButton1Click:Connect(function()
 	end
 end)
 
--- 6. FITUR MUTASI TERMINUS ESP
 local isEspTerminusRunning = false
 
 local function addTerminusESP(crystal)
@@ -797,7 +971,6 @@ local function removeTerminusESP(crystal)
 	if espFolder then espFolder:Destroy() end
 end
 
--- 7. FITUR ESP NOCTURNITE
 local isEspNocturniteRunning = false
 
 local function addNocturniteESPToModel(modelOrFolder)
@@ -900,9 +1073,6 @@ BtnESP2.MouseButton1Click:Connect(function()
 	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
 end)
 
---------------------------------------------------------------------
--- AUTO APPLY LOADED CONFIG (APPLY CONFIG SAAT START)
---------------------------------------------------------------------
 task.spawn(function()
 	task.wait(0.5)
 	
@@ -933,6 +1103,11 @@ task.spawn(function()
 		isCollectRuneRunning = true
 		setToggleState(BgRune, CircleRune, true, true)
 	end
+
+	if Config.DropRune then
+		isDropRuneRunning = true
+		updateDropRuneToggle()
+	end
 	
 	if Config.MutasiTerminus then
 		isEspTerminusRunning = true
@@ -945,4 +1120,4 @@ task.spawn(function()
 	end
 end)
 
-print("Rgx Hub dengan Fitur Collect Rune Berhasil Dimuat!")
+print("Rgx Hub Berhasil Dimuat!")
