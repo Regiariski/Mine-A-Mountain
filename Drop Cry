@@ -186,7 +186,7 @@ MiningPage.Visible = true
 
 local ESPPage = createPageContainer()
 local RunePage = createPageContainer()
-local RejoinPage = createPageContainer() -- Rejoin dipindah ke urutan terakhir
+local RejoinPage = createPageContainer()
 
 local function createCategoryLabel(parent, text)
 	local lbl = Instance.new("TextLabel")
@@ -268,7 +268,7 @@ local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminu
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
 
 -- ====================================================================
--- FITUR DROP RUNE (DI HALAMAN RUNE)
+-- FITUR DROP RUNE (DITAMBAHKAN "Storm Rune")
 -- ====================================================================
 local runeList = {
 	"Weight Rune",
@@ -279,7 +279,8 @@ local runeList = {
 	"Warmth Rune",
 	"Luck Rune",
 	"Excavator Rune",
-	"Fortune Rune"
+	"Fortune Rune",
+	"Storm Rune" -- Ditambahkan sesuai permintaan
 }
 
 local selectedRunes = {}
@@ -436,7 +437,8 @@ task.spawn(function()
 			for runeName, isSelected in pairs(selectedRunes) do
 				if isSelected and isDropRuneRunning then
 					pcall(function()
-						crystalDropRemote:FireServer(runeName)
+						local args = { runeName }
+						crystalDropRemote:FireServer(unpack(args))
 					end)
 				end
 			end
@@ -533,7 +535,7 @@ end
 createSidebarButton("Mining", MiningPage, true)
 createSidebarButton("ESP", ESPPage, false)
 createSidebarButton("Rune", RunePage, false)
-createSidebarButton("Rejoin", RejoinPage, false) -- Rejoin dipindah ke tombol urutan paling bawah di Sidebar
+createSidebarButton("Rejoin", RejoinPage, false)
 
 local isOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
