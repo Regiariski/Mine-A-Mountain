@@ -1,6 +1,7 @@
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- Hapus GUI lama jika ada agar tidak menumpuk
@@ -8,6 +9,22 @@ if CoreGui:FindFirstChild("MineMountGUI") then
 	CoreGui.MineMountGUI:Destroy()
 end
 
+-- ==========================================
+-- FITUR INFINITY JUMP (LANGSUNG AKTIF)
+-- ==========================================
+local function onJumpRequest()
+	local character = player.Character
+	if character and character:FindFirstChildOfClass("Humanoid") then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+	end
+end
+
+UserInputService.JumpRequest:Connect(onJumpRequest)
+
+-- ==========================================
+-- SETUP GUI & TOMBOL MENU
+-- ==========================================
 -- Buat ScreenGui utama
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MineMountGUI"
@@ -30,7 +47,7 @@ local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(0, 4)
 ToggleCorner.Parent = ToggleBtn
 
--- Main Frame (Panel Menu Utama) di pojok kiri atas (tinggi disesuaikan untuk 4 tombol)
+-- Main Frame (Panel Menu Utama) di pojok kiri atas (4 Tombol)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
@@ -90,34 +107,33 @@ end)
 -- LOGIKA / SCRIPT UTAMA
 --------------------------------------------------------------------
 
-local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
-
 -- 1. FITUR AUTO DROP
 local isAutoDropRunning = false
 
 local function runAutoDrop()
 	while isAutoDropRunning do
-		local inventory = player:FindFirstChild("Inventory") 
-		  or player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("Inventory")
-		  or player:FindFirstChild("Backpack")
+		pcall(function()
+			local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+			local dropRemote = remotes and remotes:FindFirstChild("CrystalDropRequest")
+			
+			local inventory = player:FindFirstChild("Inventory") 
+			  or (player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("Inventory"))
+			  or player:FindFirstChild("Backpack")
 
-		if inventory then
-			local count = 0
-			for _, item in ipairs(inventory:GetDescendants()) do
-				if not isAutoDropRunning then break end
-				
-				if item:IsA("TextButton") or item:IsA("Frame") or item:IsA("Model") or item:IsA("IntValue") or item:IsA("StringValue") then
-					local itemName = item.Name
+			if inventory and dropRemote then
+				for _, item in ipairs(inventory:GetDescendants()) do
+					if not isAutoDropRunning then break end
 					
-					if string.match(itemName, "%[.*kg%]") or string.match(itemName, "%[S%]") then
-						local args = { itemName }
-						remote:FireServer(unpack(args))
-						count = count + 1
-						task.wait(0.15)
+					if item:IsA("TextButton") or item:IsA("Frame") or item:IsA("Model") or item:IsA("IntValue") or item:IsA("StringValue") then
+						local itemName = item.Name
+						if string.match(itemName, "%[.*kg%]") or string.match(itemName, "%[S%]") then
+							dropRemote:FireServer(itemName)
+							task.wait(0.1)
+						end
 					end
 				end
 			end
-		end
+		end)
 		task.wait(1) 
 	end
 end
@@ -353,4 +369,4 @@ Btn4.MouseButton1Click:Connect(function()
 	end
 end)
 
-print("GUI 4 Tombol (Drop, Farm, Sell, ESP) Berhasil Dimuat!")
+print("GUI & Infinity Jump Berhasil Dimuat dan Langsung Aktif!")
