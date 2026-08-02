@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine a Mountain | Rgx Hub (Combined UI & Nocturnite Farm + Auto Config)
+-- Mine a Mountain | Rgx Hub (Combined UI & Nocturnite Farm + Rejoin)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
@@ -16,7 +17,6 @@ local player = Players.LocalPlayer
 -- ====================================================================
 local CONFIG_FILE = "RgxHub_Config.json"
 
--- Data konfigurasi default
 local Config = {
 	AutoDrop = false,
 	AutoFarm = false,
@@ -44,7 +44,7 @@ local function loadConfig()
 	end)
 end
 
-loadConfig() -- Muat config saat script pertama kali dijalankan
+loadConfig()
 
 -- Hapus GUI lama jika ada agar tidak menumpuk
 if CoreGui:FindFirstChild("MineMountGUI") then
@@ -183,6 +183,7 @@ local MiningPage = createPageContainer()
 MiningPage.Visible = true
 
 local ESPPage = createPageContainer()
+local RejoinPage = createPageContainer() -- Tab Rejoin di bawah ESP
 
 local function createCategoryLabel(parent, text)
 	local lbl = Instance.new("TextLabel")
@@ -198,6 +199,7 @@ end
 
 createCategoryLabel(MiningPage, "Autopilot / Actions")
 createCategoryLabel(ESPPage, "Visual / ESP")
+createCategoryLabel(RejoinPage, "Server Controls")
 
 local function createToggleFeature(parent, labelText)
 	local container = Instance.new("TextButton")
@@ -260,6 +262,45 @@ local BtnNocturnite, BgNocturnite, CircleNocturnite = createToggleFeature(Mining
 local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminus")
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
 
+-- Tombol Aksi Rejoin Sekali Klik (Aman dari Error 773)
+local function createActionButton(parent, labelText, callback)
+	local container = Instance.new("TextButton")
+	container.Parent = parent
+	container.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+	container.Size = UDim2.new(1, -8, 0, 32)
+	container.AutoButtonColor = true
+	container.Text = ""
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = container
+	
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(45, 45, 60)
+	stroke.Thickness = 1
+	stroke.Parent = container
+	
+	local label = Instance.new("TextLabel")
+	label.Parent = container
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.new(0, 8, 0, 0)
+	label.Size = UDim2.new(1, -16, 1, 0)
+	label.Font = Enum.Font.GothamBold
+	label.Text = labelText
+	label.TextColor3 = Color3.fromRGB(255, 100, 100)
+	label.TextSize = 10
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	
+	container.MouseButton1Click:Connect(callback)
+	return container
+end
+
+createActionButton(RejoinPage, "Rejoin Server (Safe)", function()
+	pcall(function()
+		TeleportService:Teleport(game.PlaceId, player)
+	end)
+end)
+
 local function setToggleState(bg, circle, state, instant)
 	local tweenInfo = TweenInfo.new(instant and 0 or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	if state then
@@ -301,7 +342,7 @@ local function createSidebarButton(name, pageContainer, isActive)
 		end
 		btn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
 		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-      pageContainer.Visible = true
+		pageContainer.Visible = true
 	end)
 	
 	return btn
@@ -309,6 +350,7 @@ end
 
 createSidebarButton("Mining", MiningPage, true)
 createSidebarButton("ESP", ESPPage, false)
+createSidebarButton("Rejoin", RejoinPage, false)
 
 local isOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
@@ -774,7 +816,7 @@ end)
 -- AUTO APPLY LOADED CONFIG (APPLY CONFIG SAAT START)
 --------------------------------------------------------------------
 task.spawn(function()
-	task.wait(0.5) -- Beri jeda sebentar agar game termuat sempurna
+	task.wait(0.5)
 	
 	if Config.AutoDrop then
 		isAutoDropRunning = true
@@ -810,4 +852,4 @@ task.spawn(function()
 	end
 end)
 
-print("Rgx Hub dengan Auto Save/Load Config Berhasil Dimuat!")
+print("Rgx Hub dengan Tombol Rejoin Sekali Klik Berhasil Dimuat!")
