@@ -1,37 +1,102 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+
+-- Hapus GUI lama jika ada agar tidak menumpuk
+if CoreGui:FindFirstChild("MineMountGUI") then
+	CoreGui.MineMountGUI:Destroy()
+end
+
+-- Buat ScreenGui utama
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MineMountGUI"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Tombol "M" (Minimize/Open) di pojok kiri atas
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Parent = ScreenGui
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
+ToggleBtn.Position = UDim2.new(0, 5, 0, 5)
+ToggleBtn.Size = UDim2.new(0, 18, 0, 18)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "M"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 9
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 4)
+ToggleCorner.Parent = ToggleBtn
+
+-- Main Frame (Panel Menu Utama) di pojok kiri atas (tinggi disesuaikan untuk 4 tombol)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 22, 32)
+MainFrame.Position = UDim2.new(0, 27, 0, 5)
+MainFrame.Size = UDim2.new(0, 95, 0, 125)
+MainFrame.Visible = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 5)
+MainCorner.Parent = MainFrame
+
+-- Judul Panel Mini
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 0, 0, 2)
+TitleLabel.Size = UDim2.new(1, 0, 0, 15)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "MENU"
+TitleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
+TitleLabel.TextSize = 7
+
+-- Fungsi untuk membuat tombol menu versi super mini
+local function createMenuButton(posY, initialText)
+	local btn = Instance.new("TextButton")
+	btn.Parent = MainFrame
+	btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	btn.Position = UDim2.new(0, 4, 0, posY)
+	btn.Size = UDim2.new(0, 87, 0, 22)
+	btn.Font = Enum.Font.GothamBold
+	btn.Text = initialText
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextSize = 7
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = btn
+	
+	return btn
+end
+
+-- 4 Tombol Menu (Drop, Farm, Sell, ESP)
+local Btn1 = createMenuButton(18, "Drop: OFF")
+local Btn2 = createMenuButton(43, "Farm: OFF")
+local Btn3 = createMenuButton(68, "Sell: OFF")
+local Btn4 = createMenuButton(93, "ESP: OFF")
+
+-- Status Toggle Panel via Tombol M
+local isOpen = true
+ToggleBtn.MouseButton1Click:Connect(function()
+	isOpen = not isOpen
+	MainFrame.Visible = isOpen
+end)
+
+--------------------------------------------------------------------
+-- LOGIKA / SCRIPT UTAMA
+--------------------------------------------------------------------
 
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
 
--- 1. Membuat UI Tombol On/Off (Ukuran Kecil)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CrystalAutoDropGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
-
-local toggleButton = Instance.new("TextButton")
-toggleButton.Name = "ToggleButton"
-toggleButton.Size = UDim2.new(0, 100, 0, 30) -- Ukuran diperkecil (100x30)
-toggleButton.Position = UDim2.new(0, 15, 0, 15) -- Pojok kiri atas
-toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah (Off)
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.TextSize = 13 -- Ukuran font disesuaikan
-toggleButton.Font = Enum.Font.SourceSansBold
-toggleButton.Text = "Auto: OFF"
-toggleButton.Parent = screenGui
-
--- Sudut tombol melengkung
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 6)
-uiCorner.Parent = toggleButton
-
--- 2. Logika Toggle & Auto Drop
-local isRunning = false
+-- 1. FITUR AUTO DROP
+local isAutoDropRunning = false
 
 local function runAutoDrop()
-	while isRunning do
+	while isAutoDropRunning do
 		local inventory = player:FindFirstChild("Inventory") 
 		  or player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("Inventory")
 		  or player:FindFirstChild("Backpack")
@@ -39,40 +104,253 @@ local function runAutoDrop()
 		if inventory then
 			local count = 0
 			for _, item in ipairs(inventory:GetDescendants()) do
-				if not isRunning then break end
+				if not isAutoDropRunning then break end
 				
 				if item:IsA("TextButton") or item:IsA("Frame") or item:IsA("Model") or item:IsA("IntValue") or item:IsA("StringValue") then
 					local itemName = item.Name
 					
 					if string.match(itemName, "%[.*kg%]") or string.match(itemName, "%[S%]") then
-						local args = {
-							itemName
-						}
+						local args = { itemName }
 						remote:FireServer(unpack(args))
 						count = count + 1
 						task.wait(0.15)
 					end
 				end
 			end
-			print("Siklus selesai. Berhasil memproses " .. count .. " item crystal.")
-		else
-			warn("Folder inventory tidak ditemukan otomatis.")
 		end
-		
 		task.wait(1) 
 	end
 end
 
--- 3. Event ketika tombol diklik
-toggleButton.MouseButton1Click:Connect(function()
-	isRunning = not isRunning
+Btn1.MouseButton1Click:Connect(function()
+	isAutoDropRunning = not isAutoDropRunning
 	
-	if isRunning then
-		toggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Hijau (On)
-		toggleButton.Text = "Auto: ON"
+	if isAutoDropRunning then
+		Btn1.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+		Btn1.Text = "Drop: ON"
 		task.spawn(runAutoDrop)
 	else
-		toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah (Off)
-		toggleButton.Text = "Auto: OFF"
+		Btn1.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		Btn1.Text = "Drop: OFF"
 	end
 end)
+
+-- 2. FITUR AUTO FARM PROXIMITY PROMPT
+local isFarmRunning = false
+task.spawn(function()
+	while true do
+		task.wait(0.3)
+		if isFarmRunning then
+			pcall(function()
+				local character = player.Character
+				if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+				
+				local targetRadius = 15 
+				for _, v in ipairs(workspace:GetDescendants()) do
+					if v:IsA("ProximityPrompt") then
+						local part = v.Parent
+						if part and part:IsA("BasePart") then
+							local objectName = part.Name:lower()
+							local parentName = part.Parent and part.Parent.Name:lower() or ""
+							
+							if objectName:find("crystal") or parentName:find("crystal") then
+								local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
+								if distance <= targetRadius then
+									v.MaxActivationDistance = targetRadius
+									v.HoldDuration = 0
+									fireproximityprompt(v)
+								end
+							end
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+Btn2.MouseButton1Click:Connect(function()
+	isFarmRunning = not isFarmRunning
+	if isFarmRunning then
+		Btn2.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+		Btn2.Text = "Farm: ON"
+	else
+		Btn2.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		Btn2.Text = "Farm: OFF"
+	end
+end)
+
+-- 3. FITUR AUTO SELL & RETURN POSITION
+local function getRootPart()
+	local character = player.Character or player.CharacterAdded:Wait()
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function executeSell()
+	pcall(function()
+		local rootPart = getRootPart()
+		if not rootPart then return end
+		local originalCFrame = rootPart.CFrame
+		
+		local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+		if remotes then
+			local goHome = remotes:FindFirstChild("GoHome")
+			if goHome then goHome:FireServer("sell") end
+			
+			task.wait(0.6)
+			
+			local sellReq = remotes:FindFirstChild("SellRequest")
+			if sellReq then sellReq:FireServer("all") end
+			
+			task.wait(0.6)
+			
+			local currentRoot = getRootPart()
+			if currentRoot then currentRoot.CFrame = originalCFrame end
+		end
+	end)
+end
+
+local function isBackpackFull()
+	local playerGui = player:FindFirstChild("PlayerGui")
+	if not playerGui then return false end
+	
+	for _, gui in ipairs(playerGui:GetDescendants()) do
+		if gui:IsA("TextLabel") or gui:IsA("TextButton") then
+			local text = string.lower(gui.Text)
+			if text:find("full") then return true end
+			
+			local current, max = text:match("(%d+)%s*/%s*(%d+)")
+			if current and max then
+				if tonumber(current) >= tonumber(max) then return true end
+			end
+		end
+	end
+	return false
+end
+
+local isSellRunning = false
+local isSelling = false
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if isSellRunning and not isSelling and isBackpackFull() then
+			isSelling = true
+			executeSell()
+			task.wait(10)
+			isSelling = false
+		end
+	end
+end)
+
+Btn3.MouseButton1Click:Connect(function()
+	isSellRunning = not isSellRunning
+	if isSellRunning then
+		Btn3.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+		Btn3.Text = "Sell: ON"
+	else
+		Btn3.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		Btn3.Text = "Sell: OFF"
+	end
+end)
+
+-- 4. FITUR ESP TERMINUS (Tombol ke-4)
+local isEspRunning = false
+local espConnections = {}
+
+local function addESP(crystal)
+	if not isEspRunning then return end
+	
+	pcall(function()
+		local isTerminus = false
+		if crystal:GetAttribute("Mutation") == "Terminus" then
+			isTerminus = true
+		end
+		
+		pcall(function()
+			if crystal.Mutation == "Terminus" then
+				isTerminus = true
+			end
+		end)
+
+		if isTerminus and not crystal:FindFirstChild("TerminusESP") then
+			local espFolder = Instance.new("Folder")
+			espFolder.Name = "TerminusESP"
+			espFolder.Parent = crystal
+
+			local highlight = Instance.new("Highlight")
+			highlight.Name = "HighlightESP"
+			highlight.Adornee = crystal
+			highlight.FillColor = Color3.fromRGB(255, 0, 0)
+			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+			highlight.FillTransparency = 0.4
+			highlight.OutlineTransparency = 0
+			highlight.Parent = espFolder
+
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "TextESP"
+			billboard.Adornee = crystal
+			billboard.Size = UDim2.new(0, 100, 0, 50)
+			billboard.StudsOffset = Vector3.new(0, 2, 0)
+			billboard.AlwaysOnTop = true
+
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Size = UDim2.new(1, 0, 1, 0)
+			textLabel.BackgroundTransparency = 1
+			textLabel.Text = "TERMINUS"
+			textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+			textLabel.TextScaled = true
+			textLabel.Font = Enum.Font.SourceSansBold
+			textLabel.TextStrokeTransparency = 0
+			textLabel.Parent = billboard
+
+			billboard.Parent = espFolder
+		end
+	end)
+end
+
+local function removeESP()
+	pcall(function()
+		local droppedCrystals = workspace:FindFirstChild("DroppedCrystals")
+		if droppedCrystals then
+			for _, crystal in ipairs(droppedCrystals:GetChildren()) do
+				local esp = crystal:FindFirstChild("TerminusESP")
+				if esp then
+					esp:Destroy()
+				end
+			end
+		end
+	end)
+end
+
+Btn4.MouseButton1Click:Connect(function()
+	isEspRunning = not isEspRunning
+	
+	if isEspRunning then
+		Btn4.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+		Btn4.Text = "ESP: ON"
+		
+		local droppedCrystals = workspace:WaitForChild("DroppedCrystals", 5)
+		if droppedCrystals then
+			for _, child in ipairs(droppedCrystals:GetChildren()) do
+				addESP(child)
+			end
+			
+			table.insert(espConnections, droppedCrystals.ChildAdded:Connect(function(child)
+				task.wait(0.5)
+				addESP(child)
+			end))
+		end
+	else
+		Btn4.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		Btn4.Text = "ESP: OFF"
+		
+		for _, conn in ipairs(espConnections) do
+			conn:Disconnect()
+		end
+		espConnections = {}
+		removeESP()
+	end
+end)
+
+print("GUI 4 Tombol (Drop, Farm, Sell, ESP) Berhasil Dimuat!")
