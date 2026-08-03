@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine A Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Drop Rune)
+-- Mine A Mountain | Rgx Hub (Fix Toggle Button Click & Nocturnite Farm)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -218,6 +218,8 @@ local function createToggleFeature(parent, labelText)
 	container.Size = UDim2.new(1, -8, 0, 32)
 	container.AutoButtonColor = false
 	container.Text = ""
+	container.Active = true
+	container.Selectable = true
 	
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 6)
@@ -238,6 +240,8 @@ local function createToggleFeature(parent, labelText)
 	label.TextColor3 = Color3.fromRGB(220, 220, 235)
 	label.TextSize = 9
 	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Active = false
+	label.Selectable = false
 	
 	local switchBg = Instance.new("Frame")
 	switchBg.Name = "SwitchBg"
@@ -245,6 +249,8 @@ local function createToggleFeature(parent, labelText)
 	switchBg.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
 	switchBg.Position = UDim2.new(1, -38, 0.5, -10)
 	switchBg.Size = UDim2.new(0, 32, 0, 20)
+	switchBg.Active = false
+	switchBg.Selectable = false
 	
 	local switchCorner = Instance.new("UICorner")
 	switchCorner.CornerRadius = UDim.new(1, 0)
@@ -256,6 +262,8 @@ local function createToggleFeature(parent, labelText)
 	switchCircle.BackgroundColor3 = Color3.fromRGB(150, 150, 170)
 	switchCircle.Position = UDim2.new(0, 2, 0.5, -8)
 	switchCircle.Size = UDim2.new(0, 16, 0, 16)
+	switchCircle.Active = false
+	switchCircle.Selectable = false
 	
 	local circleCorner = Instance.new("UICorner")
 	circleCorner.CornerRadius = UDim.new(1, 0)
@@ -440,22 +448,27 @@ DropSwitchBg.MouseButton1Click:Connect(function()
 	updateDropRuneToggle()
 end)
 
-local crystalDropRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
-task.spawn(function()
-	while true do
-		if isDropRuneRunning and crystalDropRemote then
-			for runeName, isSelected in pairs(selectedRunes) do
-				if isSelected and isDropRuneRunning then
-					pcall(function()
-						local args = { runeName }
-						crystalDropRemote:FireServer(unpack(args))
-					end)
+local successRemote, crystalDropRemote = pcall(function()
+	return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
+end)
+
+if successRemote and crystalDropRemote then
+	task.spawn(function()
+		while true do
+			if isDropRuneRunning and crystalDropRemote then
+				for runeName, isSelected in pairs(selectedRunes) do
+					if isSelected and isDropRuneRunning then
+						pcall(function()
+							local args = { runeName }
+							crystalDropRemote:FireServer(unpack(args))
+						end)
+					end
 				end
 			end
+			task.wait(1)
 		end
-		task.wait(1)
-	end
-end)
+	end)
+end
 
 local function createActionButton(parent, labelText, callback)
 	local container = Instance.new("TextButton")
@@ -881,13 +894,14 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------------------------
--- INTEGRASI FITUR: CRYSTAL MUTASI TERMINUS
+-- INTEGRASI FITUR: CRYSTAL MUTASI TERMINUS (DIPERBARUI)
 --------------------------------------------------------------------
 local isCrystalTerminusRunning = false
 
 task.spawn(function()
 	local TWEEN_SPEED = 100
 	local currentTween = nil
+	local noclipConnection, gravityConnection
 
 	local function equipPickaxe()
 		pcall(function()
@@ -978,6 +992,7 @@ task.spawn(function()
 
 	local function getTerminusMutationCrystals()
 		local crystals = {}
+		
 		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
 		if droppedCrystals then
 			for _, obj in ipairs(droppedCrystals:GetChildren()) do
@@ -987,6 +1002,20 @@ task.spawn(function()
 				end
 			end
 		end
+		
+		local things = Workspace:FindFirstChild("Things")
+		if things then
+			local crystalsFolder = things:FindFirstChild("Crystals")
+			if crystalsFolder then
+				for _, obj in ipairs(crystalsFolder:GetChildren()) do
+					local mutationAttr = obj:GetAttribute("Mutation")
+					if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
+						table.insert(crystals, obj)
+					end
+				end
+			end
+		end
+		
 		return crystals
 	end
 
@@ -1056,7 +1085,6 @@ BtnCrystalTerminus.MouseButton1Click:Connect(function()
 	setToggleState(BgCrystalTerminus, CircleCrystalTerminus, isCrystalTerminusRunning)
 end)
 
-local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
 local TWEEN_SPEED_NOC = 90 
@@ -1151,6 +1179,14 @@ local function tweenToNocturnite(targetCFrame)
 	activeTween = nil
 end
 
+local function getNocturniteFolder()
+	local md = Workspace:FindFirstChild("MountainDecorations")
+	if not md then return nil end
+	local boulders = md:FindFirstChild("Boulders")
+	if not boulders then return nil end
+	return boulders:FindFirstChild("Nocturnite")
+end
+
 local function farmSinglePart(partName, targetPart)
 	while isNocturniteFarmRunning and targetPart and targetPart.Parent and targetPart:IsA("BasePart") do
 		equipTerminus()
@@ -1172,7 +1208,12 @@ local function farmSinglePart(partName, targetPart)
 		digRequest:FireServer("The Terminus", targetPart.Position)
 		task.wait(0.3)
 		
-		targetPart = nocturniteFolder:FindFirstChild(partName)
+		local nocturniteFolder = getNocturniteFolder()
+		if nocturniteFolder then
+			targetPart = nocturniteFolder:FindFirstChild(partName)
+		else
+			break
+		end
 	end
 	stopFloating()
 end
@@ -1180,19 +1221,23 @@ end
 local function farmAllCells()
 	while isNocturniteFarmRunning do
 		local foundAny = false
-		local baseCell = nocturniteFolder:FindFirstChild("Nocturnite_cell")
-		if baseCell and baseCell:IsA("BasePart") and isNocturniteFarmRunning then
-			foundAny = true
-			farmSinglePart("Nocturnite_cell", baseCell)
-		end
-
-		for i = 1, 29 do
-			if not isNocturniteFarmRunning then break end
-			local targetPart = nocturniteFolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
-			
-			if targetPart and targetPart:IsA("BasePart") and isNocturniteFarmRunning then
+		local nocturniteFolder = getNocturniteFolder()
+		
+		if nocturniteFolder then
+			local baseCell = nocturniteFolder:FindFirstChild("Nocturnite_cell")
+			if baseCell and baseCell:IsA("BasePart") and isNocturniteFarmRunning then
 				foundAny = true
-				farmSinglePart(string.format("Nocturnite_cell.%03d", i), targetPart)
+				farmSinglePart("Nocturnite_cell", baseCell)
+			end
+
+			for i = 1, 29 do
+				if not isNocturniteFarmRunning then break end
+				local targetPart = nocturniteFolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
+				
+				if targetPart and targetPart:IsA("BasePart") and isNocturniteFarmRunning then
+					foundAny = true
+					farmSinglePart(string.format("Nocturnite_cell.%03d", i), targetPart)
+				end
 			end
 		end
 		
@@ -1329,130 +1374,182 @@ BtnInfJump.MouseButton1Click:Connect(function()
 	setToggleState(BgInfJump, CircleInfJump, isInfJumpRunning)
 end)
 
+--------------------------------------------------------------------
+-- SISTEM ESP (TERMINUS & NOCTURNITE)
+--------------------------------------------------------------------
 local isEspTerminusRunning = false
+local isEspNocturniteRunning = false
 
 local function addTerminusESP(crystal)
-	local isTerminus = false
 	pcall(function()
-		if crystal.Mutation == "Terminus" then isTerminus = true end
+		local isTerminus = false
+		local mutationAttr = crystal:GetAttribute("Mutation")
+		if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
+			isTerminus = true
+		end
+		
+		if isTerminus and not crystal:FindFirstChild("TerminusESP") then
+			local espFolder = Instance.new("Folder")
+			espFolder.Name = "TerminusESP"
+			espFolder.Parent = crystal
+
+			local highlight = Instance.new("Highlight")
+			highlight.Name = "HighlightESP"
+			highlight.Adornee = crystal
+			highlight.FillColor = Color3.fromRGB(255, 0, 0)
+			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+			highlight.FillTransparency = 0.4
+			highlight.OutlineTransparency = 0
+			highlight.Parent = espFolder
+
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "TextESP"
+			billboard.Adornee = crystal
+			billboard.Size = UDim2.new(0, 100, 0, 50)
+			billboard.StudsOffset = Vector3.new(0, 2, 0)
+			billboard.AlwaysOnTop = true
+
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Size = UDim2.new(1, 0, 1, 0)
+			textLabel.BackgroundTransparency = 1
+			textLabel.Text = "TERMINUS"
+			textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+			textLabel.TextScaled = true
+			textLabel.Font = Enum.Font.SourceSansBold
+			textLabel.TextStrokeTransparency = 0
+			textLabel.Parent = billboard
+
+			billboard.Parent = espFolder
+		elseif not isTerminus then
+			local esp = crystal:FindFirstChild("TerminusESP")
+			if esp then esp:Destroy() end
+		end
 	end)
-	if crystal:GetAttribute("Mutation") == "Terminus" then isTerminus = true end
-
-	if isTerminus and not crystal:FindFirstChild("TerminusESP") then
-		local espFolder = Instance.new("Folder")
-		espFolder.Name = "TerminusESP"
-		espFolder.Parent = crystal
-
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "HighlightESP"
-		highlight.Adornee = crystal
-		highlight.FillColor = Color3.fromRGB(255, 0, 0)
-		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.4
-		highlight.OutlineTransparency = 0
-		highlight.Parent = espFolder
-
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "TextESP"
-		billboard.Adornee = crystal
-		billboard.Size = UDim2.new(0, 100, 0, 50)
-		billboard.StudsOffset = Vector3.new(0, 2, 0)
-		billboard.AlwaysOnTop = true
-
-		local textLabel = Instance.new("TextLabel")
-		textLabel.Size = UDim2.new(1, 0, 1, 0)
-		textLabel.BackgroundTransparency = 1
-		textLabel.Text = "TERMINUS"
-		textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-		textLabel.TextScaled = true
-		textLabel.Font = Enum.Font.SourceSansBold
-		textLabel.TextStrokeTransparency = 0
-		textLabel.Parent = billboard
-
-		billboard.Parent = espFolder
-	end
 end
 
 local function removeTerminusESP(crystal)
-	local espFolder = crystal:FindFirstChild("TerminusESP")
-	if espFolder then espFolder:Destroy() end
+	pcall(function()
+		if crystal and crystal:FindFirstChild("TerminusESP") then
+			crystal.TerminusESP:Destroy()
+		end
+	end)
 end
 
-local isEspNocturniteRunning = false
-
 local function addNocturniteESPToModel(modelOrFolder)
-	local primaryPart = modelOrFolder:IsA("Model") and modelOrFolder.PrimaryPart or modelOrFolder:FindFirstChildWhichIsA("BasePart")
-	
-	if primaryPart and not modelOrFolder:FindFirstChild("NocturniteESP") then
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "NocturniteESP"
-		highlight.Adornee = modelOrFolder
-		highlight.FillColor = Color3.fromRGB(0, 170, 255)
-		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.4
-		highlight.OutlineTransparency = 0
-		highlight.Parent = modelOrFolder
+	pcall(function()
+		local primaryPart = modelOrFolder:IsA("Model") and modelOrFolder.PrimaryPart or modelOrFolder:FindFirstChildWhichIsA("BasePart")
+		
+		if primaryPart and not modelOrFolder:FindFirstChild("NocturniteESP") then
+			local highlight = Instance.new("Highlight")
+			highlight.Name = "NocturniteESP"
+			highlight.Adornee = modelOrFolder
+			highlight.FillColor = Color3.fromRGB(0, 170, 255)
+			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+			highlight.FillTransparency = 0.4
+			highlight.OutlineTransparency = 0
+			highlight.Parent = modelOrFolder
 
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "NocturniteTag"
-		billboard.Adornee = primaryPart
-		billboard.Size = UDim2.new(0, 120, 0, 50)
-		billboard.StudsOffset = Vector3.new(0, 3, 0)
-		billboard.AlwaysOnTop = true
-		billboard.MaxDistance = math.huge
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "NocturniteTag"
+			billboard.Adornee = primaryPart
+			billboard.Size = UDim2.new(0, 120, 0, 50)
+			billboard.StudsOffset = Vector3.new(0, 3, 0)
+			billboard.AlwaysOnTop = true
+			billboard.MaxDistance = math.huge
 
-		local textLabel = Instance.new("TextLabel")
-		textLabel.Size = UDim2.new(1, 0, 1, 0)
-		textLabel.BackgroundTransparency = 1
-		textLabel.Text = "Nocturnite"
-		textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		textLabel.TextScaled = true
-		textLabel.Font = Enum.Font.SourceSansBold
-		textLabel.TextStrokeTransparency = 0
-		textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		textLabel.Parent = billboard
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Size = UDim2.new(1, 0, 1, 0)
+			textLabel.BackgroundTransparency = 1
+			textLabel.Text = "Nocturnite"
+			textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+			textLabel.TextScaled = true
+			textLabel.Font = Enum.Font.SourceSansBold
+			textLabel.TextStrokeTransparency = 0
+			textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+			textLabel.Parent = billboard
 
-		billboard.Parent = modelOrFolder
-	end
+			billboard.Parent = modelOrFolder
+		end
+	end)
 end
 
 local function removeNocturniteESPFromModel(modelOrFolder)
-	if modelOrFolder:IsA("Instance") then
-		local esp = modelOrFolder:FindFirstChild("NocturniteESP")
-		if esp then esp:Destroy() end
-		local tag = modelOrFolder:FindFirstChild("NocturniteTag")
-		if tag then tag:Destroy() end
-	end
+	pcall(function()
+		if modelOrFolder and modelOrFolder:IsA("Instance") then
+			local esp = modelOrFolder:FindFirstChild("NocturniteESP")
+			if esp then esp:Destroy() end
+			local tag = modelOrFolder:FindFirstChild("NocturniteTag")
+			if tag then tag:Destroy() end
+		end
+	end)
 end
 
-RunService.RenderStepped:Connect(function()
-	local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
-	if isEspTerminusRunning and droppedCrystals then
-		for _, child in ipairs(droppedCrystals:GetChildren()) do
-			addTerminusESP(child)
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		
+		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
+		if isEspTerminusRunning and droppedCrystals then
+			for _, child in ipairs(droppedCrystals:GetChildren()) do
+				addTerminusESP(child)
+			end
+		elseif droppedCrystals then
+			for _, child in ipairs(droppedCrystals:GetChildren()) do
+				removeTerminusESP(child)
+			end
 		end
-	else
+
+		pcall(function()
+			local bouldersFolder = Workspace:FindFirstChild("MountainDecorations") 
+				and Workspace.MountainDecorations:FindFirstChild("Boulders") 
+				and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
+				
+			if isEspNocturniteRunning and bouldersFolder then
+				if bouldersFolder:IsA("Folder") then
+					for _, child in ipairs(bouldersFolder:GetChildren()) do
+						addNocturniteESPToModel(child)
+					end
+				else
+					addNocturniteESPToModel(bouldersFolder)
+				end
+			elseif bouldersFolder then
+				if bouldersFolder:IsA("Folder") then
+					for _, child in ipairs(bouldersFolder:GetChildren()) do
+						removeNocturniteESPFromModel(child)
+					end
+				else
+					removeNocturniteESPFromModel(bouldersFolder)
+				end
+			end
+		end)
+	end
+end)
+
+BtnESP1.MouseButton1Click:Connect(function()
+	isEspTerminusRunning = not isEspTerminusRunning
+	Config.MutasiTerminus = isEspTerminusRunning
+	saveConfig()
+	setToggleState(BgESP1, CircleESP1, isEspTerminusRunning)
+	if not isEspTerminusRunning then
+		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
 		if droppedCrystals then
 			for _, child in ipairs(droppedCrystals:GetChildren()) do
 				removeTerminusESP(child)
 			end
 		end
 	end
+end)
 
-	pcall(function()
-		local bouldersFolder = Workspace:FindFirstChild("MountainDecorations") 
-			and Workspace.MountainDecorations:FindFirstChild("Boulders") 
-			and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
-			
-		if isEspNocturniteRunning and bouldersFolder then
-			if bouldersFolder:IsA("Folder") then
-				for _, child in ipairs(bouldersFolder:GetChildren()) do
-					addNocturniteESPToModel(child)
-				end
-			else
-				addNocturniteESPToModel(bouldersFolder)
-			end
-		else
+BtnESP2.MouseButton1Click:Connect(function()
+	isEspNocturniteRunning = not isEspNocturniteRunning
+	Config.NocturniteESP = isEspNocturniteRunning
+	saveConfig()
+	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
+	if not isEspNocturniteRunning then
+		pcall(function()
+			local bouldersFolder = Workspace:FindFirstChild("MountainDecorations") 
+				and Workspace.MountainDecorations:FindFirstChild("Boulders") 
+				and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
 			if bouldersFolder then
 				if bouldersFolder:IsA("Folder") then
 					for _, child in ipairs(bouldersFolder:GetChildren()) do
@@ -1462,22 +1559,8 @@ RunService.RenderStepped:Connect(function()
 					removeNocturniteESPFromModel(bouldersFolder)
 				end
 			end
-		end
-	end)
-end)
-
-BtnESP1.MouseButton1Click:Connect(function()
-	isEspTerminusRunning = not isEspTerminusRunning
-	Config.MutasiTerminus = isEspTerminusRunning
-	saveConfig()
-	setToggleState(BgESP1, CircleESP1, isEspTerminusRunning)
-end)
-
-BtnESP2.MouseButton1Click:Connect(function()
-	isEspNocturniteRunning = not isEspNocturniteRunning
-	Config.NocturniteESP = isEspNocturniteRunning
-	saveConfig()
-	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
+		end)
+	end
 end)
 
 task.spawn(function()
@@ -1506,7 +1589,7 @@ task.spawn(function()
 
 	if Config.CrystalMutasiTerminus then
 		isCrystalTerminusRunning = true
-		setToggleState(BgCrystalTerminus, CircleCrystalTerminus, true, true)
+		setToggleState(BgCrystalTerminsi, CircleCrystalTerminus, true, true)
 	end
 	
 	if Config.NocturniteFarm then
