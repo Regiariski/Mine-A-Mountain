@@ -26,7 +26,8 @@ local Config = {
 	MutasiTerminus = false,
 	NocturniteESP = false,
 	DropRune = false,
-	FarmingCrystal = false
+	FarmingCrystal = false,
+	CrystalMutasiTerminus = false
 }
 
 local function saveConfig()
@@ -169,7 +170,7 @@ local function createPageContainer()
 	container.BackgroundTransparency = 1
 	container.Position = UDim2.new(0, 98, 0, 42)
 	container.Size = UDim2.new(1, -106, 1, -50)
-	container.CanvasSize = UDim2.new(0, 0, 0, 320)
+	container.CanvasSize = UDim2.new(0, 0, 0, 350)
 	container.ScrollBarThickness = 2
 	container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 	container.Visible = false
@@ -263,6 +264,7 @@ local Btn1, Bg1, Circle1 = createToggleFeature(MiningPage, "Auto Drop")
 local BtnInstanMine, BgInstanMine, CircleInstanMine = createToggleFeature(MiningPage, "Instan Mine Crystal")
 local Btn3, Bg3, Circle3 = createToggleFeature(MiningPage, "Auto Sell")
 local BtnFarmingCrystal, BgFarmingCrystal, CircleFarmingCrystal = createToggleFeature(MiningPage, "Farming Crystal")
+local BtnCrystalTerminus, BgCrystalTerminus, CircleCrystalTerminus = createToggleFeature(MiningPage, "Crystal Mutasi Terminus")
 local BtnNocturnite, BgNocturnite, CircleNocturnite = createToggleFeature(MiningPage, "Nocturnite Farm")
 local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Rune")
 
@@ -871,6 +873,182 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
 	setToggleState(BgFarmingCrystal, CircleFarmingCrystal, isFarmingCrystalRunning)
 end)
 
+--------------------------------------------------------------------
+-- INTEGRASI FITUR: CRYSTAL MUTASI TERMINUS
+--------------------------------------------------------------------
+local isCrystalTerminusRunning = false
+
+task.spawn(function()
+	local TWEEN_SPEED = 100
+	local currentTween = nil
+
+	local function equipPickaxe()
+		pcall(function()
+			local backpack = player:FindFirstChild("Backpack")
+			local char = player.Character
+			local humanoid = char and char:FindFirstChild("Humanoid")
+			if not backpack or not char or not humanoid then return end
+			
+			local alreadyEquipped = false
+			for _, item in ipairs(char:GetChildren()) do
+				if item:IsA("Tool") and (item.Name:lower():find("pickaxe") or item.Name:lower():find("terminus")) then
+					alreadyEquipped = true
+					break
+				end
+			end
+			
+			if not alreadyEquipped then
+				for _, item in ipairs(backpack:GetChildren()) do
+					if item:IsA("Tool") and (item.Name:lower():find("pickaxe") or item.Name:lower():find("terminus")) then
+						humanoid:EquipTool(item)
+						task.wait(0.1)
+						break
+					end
+				end
+			end
+		end)
+	end
+
+	local function setupSteppers(enable)
+		local character = player.Character or player.CharacterAdded:Wait()
+		local rootPart = character:WaitForChild("HumanoidRootPart")
+		local humanoid = character:WaitForChild("Humanoid")
+
+		if enable then
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+
+			noclipConnection = RunService.Stepped:Connect(function()
+				if character and character.Parent then
+					for _, part in ipairs(character:GetDescendants()) do
+						if part:IsA("BasePart") then
+							part.CanCollide = false
+						end
+					end
+				end
+			end)
+
+			gravityConnection = RunService.RenderStepped:Connect(function()
+				if rootPart and rootPart.Parent then
+					rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 0, rootPart.AssemblyLinearVelocity.Z)
+					rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+				end
+			end)
+		else
+			if noclipConnection then noclipConnection:Disconnect() end
+			if gravityConnection then gravityConnection:Disconnect() end
+		end
+	end
+
+	local function tweenTo(targetCFrame)
+		local character = player.Character
+		if not character then return end
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+
+		if currentTween then
+			currentTween:Cancel()
+			currentTween = nil
+		end
+
+		local distance = (rootPart.Position - targetCFrame.Position).Magnitude
+		if distance < 1 then return end
+		
+		local duration = distance / TWEEN_SPEED
+		local adjustedCFrame = CFrame.new(targetCFrame.Position) * rootPart.CFrame.Rotation
+		
+		local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+		currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = adjustedCFrame})
+		
+		currentTween:Play()
+		
+		local elapsed = 0
+		while elapsed < duration and currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing do
+			task.wait(0.05)
+			elapsed = elapsed + 0.05
+		end
+	end
+
+	local function getTerminusMutationCrystals()
+		local crystals = {}
+		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
+		if droppedCrystals then
+			for _, obj in ipairs(droppedCrystals:GetChildren()) do
+				local mutationAttr = obj:GetAttribute("Mutation")
+				if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
+					table.insert(crystals, obj)
+				end
+			end
+		end
+		return crystals
+	end
+
+	while true do
+		if isCrystalTerminusRunning then
+			setupSteppers(true)
+			pcall(function()
+				local character = player.Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+				local crystals = getTerminusMutationCrystals()
+				
+				if #crystals > 0 and rootPart then
+					for _, crystal in ipairs(crystals) do
+						if not isCrystalTerminusRunning then break end
+						if crystal and crystal.Parent then
+							local targetPart = crystal:IsA("Model") and crystal.PrimaryPart or crystal
+							if not targetPart and crystal:IsA("Model") then
+								targetPart = crystal:FindFirstChildWhichIsA("BasePart")
+							end
+							if not targetPart and crystal:IsA("BasePart") then
+								targetPart = crystal
+							end
+							
+							if targetPart and targetPart:IsA("BasePart") then
+								tweenTo(targetPart.CFrame)
+								equipPickaxe()
+								
+								local startTime = tick()
+								while isCrystalTerminusRunning and crystal and crystal.Parent and (tick() - startTime < 4) do
+									rootPart.CFrame = CFrame.new(targetPart.Position) * rootPart.CFrame.Rotation
+									
+									local activeTool = character:FindFirstChildOfClass("Tool")
+									if activeTool then
+										activeTool:Activate()
+									end
+									
+									local prompt = crystal:FindFirstChildWhichIsA("ProximityPrompt", true)
+									if prompt then
+										prompt.MaxActivationDistance = 99999
+										prompt.HoldDuration = 0
+										fireproximityprompt(prompt)
+									end
+									
+									if firetouchinterest then
+										firetouchinterest(rootPart, targetPart, 0)
+										task.wait(0.02)
+										firetouchinterest(rootPart, targetPart, 1)
+									end
+									
+									task.wait(0.1)
+								end
+							end
+						end
+					end
+				end
+			end)
+			setupSteppers(false)
+		end
+		task.wait(0.5)
+	end
+end)
+
+BtnCrystalTerminus.MouseButton1Click:Connect(function()
+	isCrystalTerminusRunning = not isCrystalTerminusRunning
+	Config.CrystalMutasiTerminus = isCrystalTerminusRunning
+	saveConfig()
+	setToggleState(BgCrystalTerminus, CircleCrystalTerminus, isCrystalTerminusRunning)
+end)
+
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
@@ -1291,6 +1469,11 @@ task.spawn(function()
 	if Config.FarmingCrystal then
 		isFarmingCrystalRunning = true
 		setToggleState(BgFarmingCrystal, CircleFarmingCrystal, true, true)
+	end
+
+	if Config.CrystalMutasiTerminus then
+		isCrystalTerminusRunning = true
+		setToggleState(BgCrystalTerminus, CircleCrystalTerminus, true, true)
 	end
 	
 	if Config.NocturniteFarm then
