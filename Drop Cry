@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine A Mountain | Rgx Hub (Full Fixed Version - Auto Dig Timer Fixed)
+-- Mine A Mountain | Rgx Hub (Full Fixed Version - Auto Dig & Auto Low Server)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -29,7 +29,7 @@ local Config = {
 	DropRune = false,
 	FarmingCrystal = false,
 	CrystalMutasiTerminus = false,
-	AutoDigMisc = true, -- Default Aktif
+	AutoDigMisc = true,
 	AutoDigDuration = "60s",
 	InfinityJump = false,
 	AutoLowServer = false,
@@ -55,8 +55,6 @@ local function loadConfig()
 end
 
 loadConfig()
-
--- Paksa Auto Dig selalu aktif saat awal run (mengatasi override dari file config lama)
 Config.AutoDigMisc = true
 saveConfig()
 
@@ -635,9 +633,7 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
--- ====================================================================
--- FARMING CRYSTAL LOGIC
--- ====================================================================
+-- Farming Crystal Logic
 local isFarmingCrystalRunning = false
 local noclipConnectionCrystal
 local gravityConnectionCrystal
@@ -703,7 +699,6 @@ end
 
 local function getAllCrystalsSorted()
     local crystals = {}
-    
     local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
     if droppedCrystals then
         for _, crystal in ipairs(droppedCrystals:GetChildren()) do
@@ -754,11 +749,9 @@ task.spawn(function()
                 if not rootPart then return end
 
                 local crystals = getAllCrystalsSorted()
-                
                 if #crystals > 0 then
                     for _, crystal in ipairs(crystals) do
                         if not isFarmingCrystalRunning then break end
-                        
                         if crystal and crystal.Parent then
                             local targetPart = crystal:IsA("Model") and crystal.PrimaryPart or crystal
                             if not targetPart and crystal:IsA("Model") then
@@ -770,7 +763,6 @@ task.spawn(function()
                             
                             if targetPart and targetPart:IsA("BasePart") then
                                 tweenToCrystal(targetPart.CFrame)
-                                
                                 if not isFarmingCrystalRunning then break end
                                 
                                 local startTime = tick()
@@ -839,14 +831,8 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
             currentTweenCrystal:Cancel()
             currentTweenCrystal = nil
         end
-        if noclipConnectionCrystal then 
-            noclipConnectionCrystal:Disconnect() 
-            noclipConnectionCrystal = nil 
-        end
-        if gravityConnectionCrystal then 
-            gravityConnectionCrystal:Disconnect() 
-            gravityConnectionCrystal = nil 
-        end
+        if noclipConnectionCrystal then noclipConnectionCrystal:Disconnect() noclipConnectionCrystal = nil end
+        if gravityConnectionCrystal then gravityConnectionCrystal:Disconnect() gravityConnectionCrystal = nil end
         
         local char = player.Character
         if char then
@@ -859,9 +845,7 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
     end
 end)
 
--- ====================================================================
--- CRYSTAL MUTASI TERMINUS LOGIC
--- ====================================================================
+-- Crystal Mutasi Terminus Logic
 local isCrystalTerminusRunning = false
 local noclipConnectionTerminus
 local gravityConnectionTerminus
@@ -916,7 +900,6 @@ local function tweenToTerminus(targetCFrame)
     
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
     currentTweenTerminus = TweenService:Create(rootPart, tweenInfo, {CFrame = adjustedCFrame})
-    
     currentTweenTerminus:Play()
     
     local elapsed = 0
@@ -941,6 +924,19 @@ local function getTerminusMutationCrystals()
             end
         end
     end
+    
+    local things = Workspace:FindFirstChild("Things")
+    if things then
+        local crystalsFolder = things:FindFirstChild("Crystals")
+        if crystalsFolder then
+            for _, obj in ipairs(crystalsFolder:GetChildren()) do
+                local mutationAttr = obj:GetAttribute("Mutation")
+                if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
+                    table.insert(crystals, obj)
+                end
+            end
+        end
+    end
     return crystals
 end
 
@@ -955,7 +951,6 @@ task.spawn(function()
                 if not rootPart then return end
                 
                 local crystals = getTerminusMutationCrystals()
-                
                 if #crystals > 0 then
                     for _, crystal in ipairs(crystals) do
                         if not isCrystalTerminusRunning then break end
@@ -970,7 +965,6 @@ task.spawn(function()
                             
                             if targetPart and targetPart:IsA("BasePart") then
                                 tweenToTerminus(targetPart.CFrame)
-                                
                                 if not isCrystalTerminusRunning then break end
                                 equipPickaxeTerminus()
                                 
@@ -979,9 +973,7 @@ task.spawn(function()
                                     rootPart.CFrame = CFrame.new(targetPart.Position) * rootPart.CFrame.Rotation
                                     
                                     local activeTool = char:FindFirstChildOfClass("Tool")
-                                    if activeTool then
-                                        activeTool:Activate()
-                                    end
+                                    if activeTool then activeTool:Activate() end
                                     
                                     local prompt = crystal:FindFirstChildWhichIsA("ProximityPrompt", true)
                                     if prompt then
@@ -1023,9 +1015,7 @@ BtnCrystalTerminus.MouseButton1Click:Connect(function()
                     hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
                 end
                 for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
@@ -1041,18 +1031,9 @@ BtnCrystalTerminus.MouseButton1Click:Connect(function()
             end
         end)
     else
-        if currentTweenTerminus then
-            currentTweenTerminus:Cancel()
-            currentTweenTerminus = nil
-        end
-        if noclipConnectionTerminus then 
-            noclipConnectionTerminus:Disconnect() 
-            noclipConnectionTerminus = nil 
-        end
-        if gravityConnectionTerminus then 
-            gravityConnectionTerminus:Disconnect() 
-            gravityConnectionTerminus = nil 
-        end
+        if currentTweenTerminus then currentTweenTerminus:Cancel() currentTweenTerminus = nil end
+        if noclipConnectionTerminus then noclipConnectionTerminus:Disconnect() noclipConnectionTerminus = nil end
+        if gravityConnectionTerminus then gravityConnectionTerminus:Disconnect() gravityConnectionTerminus = nil end
         
         local char = player.Character
         if char then
@@ -1109,16 +1090,13 @@ task.spawn(function()
 							local objectName = part.Name:lower()
 							local parentName = part.Parent and part.Parent.Name:lower() or ""
 							local fullName = v:GetFullName():lower()
-							
 							local isPlaced = fullName:find("plot") or fullName:find("base") or fullName:find("placed") or parentName:find("plot")
 							
 							if not isPlaced then
 								if objectName:find("rune") or parentName:find("rune") or v.ActionText:lower() == "collect" then
 									isCollecting = true
-									
 									v.MaxActivationDistance = 99999
 									v.HoldDuration = 0
-									
 									rootPart.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 									
 									for i = 1, 3 do
@@ -1126,7 +1104,6 @@ task.spawn(function()
 										fireproximityprompt(v)
 										task.wait(0.02)
 									end
-									
 									task.wait(0.05)
 									isCollecting = false
 								end
@@ -1147,25 +1124,17 @@ BtnRune.MouseButton1Click:Connect(function()
 	if not isCollectRuneRunning then isCollecting = false end
 end)
 
--- ====================================================================
--- ESP MUTASI TERMINUS & NOCTURNITE
--- ====================================================================
+-- ESP Mutasi Terminus & Nocturnite
 local isEspTerminusRunning = false
 
 local function addTerminusESP(crystal)
     if not isEspTerminusRunning then return end
     pcall(function()
         local isTerminus = false
-        
         pcall(function()
-            if crystal.Mutation == "Terminus" then
-                isTerminus = true
-            end
+            if crystal.Mutation == "Terminus" then isTerminus = true end
         end)
-        
-        if crystal:GetAttribute("Mutation") == "Terminus" then
-            isTerminus = true
-        end
+        if crystal:GetAttribute("Mutation") == "Terminus" then isTerminus = true end
 
         if isTerminus and not crystal:FindFirstChild("TerminusESP") then
             local espFolder = Instance.new("Folder")
@@ -1218,9 +1187,7 @@ local function clearAllTerminusESP()
             end
         end
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:FindFirstChild("TerminusESP") then
-                obj.TerminusESP:Destroy()
-            end
+            if obj:FindFirstChild("TerminusESP") then obj.TerminusESP:Destroy() end
         end
     end)
 end
@@ -1297,9 +1264,6 @@ local function removeESP(item)
 	end
 end
 
--- ====================================================================
--- NOCTURNITE ESP (DIJADIKAN 1 PART / DIKELOMPOKKAN JIKA BERDEKATAN)
--- ====================================================================
 local isEspNocturniteRunning = false
 local nocturniteESPParts = {}
 
@@ -1327,7 +1291,6 @@ task.spawn(function()
 						end
 					end
 
-					-- Mengelompokkan part yang berdekatan (dalam jarak <= 30 studs) ke dalam 1 grup
 					local clusters = {}
 					local maxDistance = 30
 					for _, part in ipairs(parts) do
@@ -1349,7 +1312,6 @@ task.spawn(function()
 
 					local activeParts = {}
 					for _, cluster in ipairs(clusters) do
-						-- Ambil 1 part utama per grup/cluster untuk menampilkan ESP
 						local representative = cluster[1]
 						if representative then
 							activeParts[representative] = true
@@ -1357,11 +1319,8 @@ task.spawn(function()
 						end
 					end
 
-					-- Hapus ESP dari part yang sudah tidak masuk dalam representatif cluster aktif
 					for part, _ in pairs(nocturniteESPParts) do
-						if not activeParts[part] then
-							removeESP(part)
-						end
+						if not activeParts[part] then removeESP(part) end
 					end
 
 					nocturniteESPParts = activeParts
@@ -1370,9 +1329,7 @@ task.spawn(function()
 				end
 			end)
 		else
-			if next(nocturniteESPParts) then
-				clearAllNocturniteESP()
-			end
+			if next(nocturniteESPParts) then clearAllNocturniteESP() end
 		end
 	end
 end)
@@ -1382,20 +1339,16 @@ BtnESP2.MouseButton1Click:Connect(function()
 	Config.NocturniteESP = isEspNocturniteRunning
 	saveConfig()
 	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
-	if not isEspNocturniteRunning then
-		clearAllNocturniteESP()
-	end
+	if not isEspNocturniteRunning then clearAllNocturniteESP() end
 end)
 
--- ====================================================================
--- NOCTURNITE FARM HANDLER (TWEEN DI BAWAH NOCTURNITE)
--- ====================================================================
+-- Nocturnite Farm Handler
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
 local TWEEN_SPEED_NOC = 90 
 local DETECTION_RADIUS = 50 
-local BASE_HOVER_HEIGHT = 5 -- Jarak di bawah Nocturnite
+local BASE_HOVER_HEIGHT = 5 
 local activeTween = nil
 local isNocturniteFarmRunning = false
 local isFloating = false
@@ -1445,7 +1398,6 @@ end
 
 local function getSafeHoverPosition(targetPart)
 	local bottomOffset = (targetPart.Size.Y / 2) + BASE_HOVER_HEIGHT
-	-- Diubah menjadi minus (-) agar posisinya berada di bawah Nocturnite
 	return targetPart.CFrame - Vector3.new(0, bottomOffset, 0)
 end
 
@@ -1526,7 +1478,7 @@ BtnNocturnite.MouseButton1Click:Connect(function()
 end)
 
 -- ====================================================================
--- MISC AUTO DIG (FIXED TIMER RUNNING ISSUE)
+-- MISC AUTO DIG & AUTO LOW SERVER (FIXED & IMPROVED)
 -- ====================================================================
 local selectedAutoDigDuration = Config.AutoDigDuration or "60s"
 local isAutoDigRunning = Config.AutoDigMisc
@@ -1611,11 +1563,8 @@ end
 local function equipTerminusTool()
 	local char, hum, _, bp = getCharacterParts()
 	if char:FindFirstChild("The Terminus") then return end
-	
 	local tool = bp:FindFirstChild("The Terminus")
-	if tool and tool:IsA("Tool") then
-		hum:EquipTool(tool)
-	end
+	if tool and tool:IsA("Tool") then hum:EquipTool(tool) end
 end
 
 task.spawn(function()
@@ -1647,7 +1596,6 @@ end
 local function startAutoDigTimer()
 	autoDigSession = autoDigSession + 1
 	local currentSession = autoDigSession
-	
 	local totalSeconds = getDurationSeconds(selectedAutoDigDuration)
 	local timeLeft = totalSeconds
 	
@@ -1718,7 +1666,7 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- ====================================================================
--- AUTO LOW SERVER
+-- AUTO LOW SERVER (FIXED STATUS BAR & NOCTURNITE DETECTION)
 -- ====================================================================
 local selectedHopDelayMode = Config.HopDelay or "60s"
 local isAutoLowServerRunning = false
@@ -1806,6 +1754,7 @@ HopDropdownBtn.MouseButton1Click:Connect(function()
 	HopScrollingFrame.Visible = isHopDropdownOpen
 end)
 
+-- Deteksi Part Nocturnite yang diperbarui & lebih akurat via GetDescendants
 local function hasNocturniteToFarm()
 	if isNocturniteFarmRunning then return true end
 	local found = false
@@ -1815,14 +1764,10 @@ local function hasNocturniteToFarm()
 			and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
 			
 		if folder then
-			if folder:FindFirstChild("Nocturnite_cell") then
-				found = true
-			else
-				for i = 1, 29 do
-					if folder:FindFirstChild(string.format("Nocturnite_cell.%03d", i)) then
-						found = true
-						break
-					end
+			for _, obj in ipairs(folder:GetDescendants()) do
+				if obj:IsA("BasePart") and string.lower(obj.Name):find("nocturnite") then
+					found = true
+					break
 				end
 			end
 		end
@@ -1934,7 +1879,6 @@ task.spawn(function()
 	if Config.NocturniteESP then isEspNocturniteRunning = true setToggleState(BgESP2, CircleESP2, true, true) end
 	if Config.InfinityJump then isInfinityJumpRunning = true setToggleState(InfJumpBg, InfJumpCircle, true, true) end
 
-	-- Auto Dig Misc Inisialisasi (Otomatis Aktif)
 	selectedAutoDigDuration = Config.AutoDigDuration or "60s"
 	AutoDigDropdownBtn.Text = "  Auto Dig Time: " .. selectedAutoDigDuration .. " ▼"
 	if Config.AutoDigMisc then
