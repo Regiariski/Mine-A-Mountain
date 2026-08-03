@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine A Mountain | Rgx Hub (Fix Toggle Button Click & Nocturnite Farm)
+-- Mine A Mountain | Rgx Hub (Updated with Full Config & Auto Save)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -29,7 +29,9 @@ local Config = {
 	DropRune = false,
 	FarmingCrystal = false,
 	CrystalMutasiTerminus = false,
-	InfinityJump = false
+	InfinityJump = false,
+	AutoFastMine = false,
+	SelectedRunes = {}
 }
 
 local function saveConfig()
@@ -92,7 +94,7 @@ MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BackgroundTransparency = 0.05
 MainFrame.Position = UDim2.new(0, 62, 0, 10)
-MainFrame.Size = UDim2.new(0, 240, 0, 275)
+MainFrame.Size = UDim2.new(0, 240, 0, 290)
 MainFrame.Visible = true
 
 local MainCorner = Instance.new("UICorner")
@@ -114,13 +116,6 @@ TopBar.Size = UDim2.new(1, 0, 0, 32)
 local TopBarCorner = Instance.new("UICorner")
 TopBarCorner.CornerRadius = UDim.new(0, 10)
 TopBarCorner.Parent = TopBar
-
-local FixCorner = Instance.new("Frame")
-FixCorner.Parent = TopBar
-FixCorner.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-FixCorner.BorderSizePixel = 0
-FixCorner.Position = UDim2.new(0, 0, 1, -5)
-FixCorner.Size = UDim2.new(1, 0, 0, 5)
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Parent = TopBar
@@ -172,7 +167,7 @@ local function createPageContainer()
 	container.BackgroundTransparency = 1
 	container.Position = UDim2.new(0, 98, 0, 42)
 	container.Size = UDim2.new(1, -106, 1, -50)
-	container.CanvasSize = UDim2.new(0, 0, 0, 350)
+	container.CanvasSize = UDim2.new(0, 0, 0, 420)
 	container.ScrollBarThickness = 2
 	container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 	container.Visible = false
@@ -280,6 +275,51 @@ local BtnCrystalTerminus, BgCrystalTerminus, CircleCrystalTerminus = createToggl
 local BtnNocturnite, BgNocturnite, CircleNocturnite = createToggleFeature(MiningPage, "Nocturnite Farm")
 local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Rune")
 
+local BtnFastMine, BgFastMine, CircleFastMine = createToggleFeature(MiningPage, "Auto Fast Mine")
+
+-- Status Bar Container
+local StatusBarBg = Instance.new("Frame")
+StatusBarBg.Name = "StatusBarBg"
+StatusBarBg.Parent = MiningPage
+StatusBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+StatusBarBg.BorderSizePixel = 0
+StatusBarBg.Size = UDim2.new(1, -8, 0, 22)
+
+local StatusBarCorner = Instance.new("UICorner")
+StatusBarCorner.CornerRadius = UDim.new(0, 5)
+StatusBarCorner.Parent = StatusBarBg
+
+local StatusBarFill = Instance.new("Frame")
+StatusBarFill.Name = "StatusBarFill"
+StatusBarFill.Parent = StatusBarBg
+StatusBarFill.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+StatusBarFill.BorderSizePixel = 0
+StatusBarFill.Size = UDim2.new(0, 0, 1, 0)
+
+local StatusBarFillCorner = Instance.new("UICorner")
+StatusBarFillCorner.CornerRadius = UDim.new(0, 5)
+StatusBarFillCorner.Parent = StatusBarFill
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Name = "StatusText"
+StatusText.Parent = StatusBarBg
+StatusText.BackgroundTransparency = 1
+StatusText.Size = UDim2.new(1, 0, 1, 0)
+StatusText.Font = Enum.Font.GothamMedium
+StatusText.Text = "Status: Idle"
+StatusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusText.TextSize = 10
+StatusText.TextXAlignment = Enum.TextXAlignment.Center
+
+local function updateStatusBar(text, progress, color)
+	StatusText.Text = text
+	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(StatusBarFill, tweenInfo, {
+		Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0),
+		BackgroundColor3 = color
+	}):Play()
+end
+
 local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminus")
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
 
@@ -289,19 +329,12 @@ local BtnInfJump, BgInfJump, CircleInfJump = createToggleFeature(MiscPage, "Infi
 -- FITUR DROP RUNE
 -- ====================================================================
 local runeList = {
-	"Weight Rune",
-	"Detonation Rune",
-	"Preservation Rune",
-	"Colossus Rune",
-	"Haste Rune",
-	"Warmth Rune",
-	"Luck Rune",
-	"Excavator Rune",
-	"Fortune Rune",
-	"Storm Rune"
+	"Weight Rune", "Detonation Rune", "Preservation Rune", "Colossus Rune",
+	"Haste Rune", "Warmth Rune", "Luck Rune", "Excavator Rune",
+	"Fortune Rune", "Storm Rune"
 }
 
-local selectedRunes = {}
+local selectedRunes = Config.SelectedRunes or {}
 local isDropRuneRunning = false
 local isDropdownOpen = false
 
@@ -390,14 +423,16 @@ RuneUIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 RuneUIListLayout.Padding = UDim.new(0, 3)
 
 for _, runeName in ipairs(runeList) do
-	selectedRunes[runeName] = false
+	if selectedRunes[runeName] == nil then
+		selectedRunes[runeName] = false
+	end
 	
 	local ItemButton = Instance.new("TextButton")
 	ItemButton.Parent = RuneScrollingFrame
-	ItemButton.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
+	ItemButton.BackgroundColor3 = selectedRunes[runeName] and Color3.fromRGB(38, 50, 42) or Color3.fromRGB(32, 32, 40)
 	ItemButton.Size = UDim2.new(1, -4, 0, 24)
-	ItemButton.TextColor3 = Color3.fromRGB(180, 180, 195)
-	ItemButton.Text = "  [ ] " .. runeName
+	ItemButton.TextColor3 = selectedRunes[runeName] and Color3.fromRGB(80, 255, 150) or Color3.fromRGB(180, 180, 195)
+	ItemButton.Text = selectedRunes[runeName] and ("  [✓] " .. runeName) or ("  [ ] " .. runeName)
 	ItemButton.TextXAlignment = Enum.TextXAlignment.Left
 	ItemButton.TextSize = 9
 	ItemButton.Font = Enum.Font.Gotham
@@ -408,6 +443,9 @@ for _, runeName in ipairs(runeList) do
 	
 	ItemButton.MouseButton1Click:Connect(function()
 		selectedRunes[runeName] = not selectedRunes[runeName]
+		Config.SelectedRunes = selectedRunes
+		saveConfig()
+		
 		if selectedRunes[runeName] then
 			ItemButton.Text = "  [✓] " .. runeName
 			ItemButton.TextColor3 = Color3.fromRGB(80, 255, 150)
@@ -434,11 +472,7 @@ end
 DropdownButton.MouseButton1Click:Connect(function()
 	isDropdownOpen = not isDropdownOpen
 	RuneScrollingFrame.Visible = isDropdownOpen
-	if isDropdownOpen then
-		DropdownButton.Text = "  Select Runes ▴"
-	else
-		DropdownButton.Text = "  Select Runes ▾"
-	end
+	DropdownButton.Text = isDropdownOpen and "  Select Runes ▴" or "  Select Runes ▾"
 end)
 
 DropSwitchBg.MouseButton1Click:Connect(function()
@@ -459,8 +493,7 @@ if successRemote and crystalDropRemote then
 				for runeName, isSelected in pairs(selectedRunes) do
 					if isSelected and isDropRuneRunning then
 						pcall(function()
-							local args = { runeName }
-							crystalDropRemote:FireServer(unpack(args))
+							crystalDropRemote:FireServer(runeName)
 						end)
 					end
 				end
@@ -501,6 +534,76 @@ local function createActionButton(parent, labelText, callback)
 	container.MouseButton1Click:Connect(callback)
 	return container
 end
+
+-- CLEAR AREA
+createActionButton(MiscPage, "Clear Area", function()
+	pcall(function()
+		local character = player.Character
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+		local rootPos = character.HumanoidRootPart.Position
+		local radius = 30
+		
+		for _, obj in ipairs(Workspace:GetDescendants()) do
+			if obj:IsA("BasePart") and not obj:IsDescendantOf(character) then
+				if (obj.Position - rootPos).Magnitude <= radius then
+					if obj.Name:lower() ~= "terrain" and not obj.Anchored then
+						obj:Destroy()
+					end
+				end
+			end
+		end
+	end)
+end)
+
+-- AUTO DIG
+local isAutoDigRunning = false
+local autoDigContainer, autoDigBg, autoDigCircle = createToggleFeature(MiscPage, "Auto Dig")
+
+local function getCharacterParts()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local hrp = char:WaitForChild("HumanoidRootPart")
+	local bp = player:WaitForChild("Backpack")
+	return char, hum, hrp, bp
+end
+
+local function equipTerminusDig()
+	local char, hum, _, bp = getCharacterParts()
+	if char:FindFirstChild("The Terminus") then return end
+	local tool = bp:FindFirstChild("The Terminus")
+	if tool and tool:IsA("Tool") then
+		hum:EquipTool(tool)
+	end
+end
+
+task.spawn(function()
+	while true do
+		if isAutoDigRunning then
+			pcall(function()
+				equipTerminusDig()
+				local _, _, hrp, _ = getCharacterParts()
+				if hrp then
+					local pos = hrp.Position
+					ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest"):FireServer("The Terminus", vector.create(pos.X, pos.Y, pos.Z))
+				end
+			end)
+		end
+		task.wait(0.3)
+	end
+end)
+
+autoDigContainer.MouseButton1Click:Connect(function()
+	isAutoDigRunning = not isAutoDigRunning
+	local info = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	if isAutoDigRunning then
+		TweenService:Create(autoDigBg, info, {BackgroundColor3 = Color3.fromRGB(50, 140, 80)}):Play()
+		TweenService:Create(autoDigCircle, info, {Position = UDim2.new(1, -18, 0.5, -8), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+		equipTerminusDig()
+	else
+		TweenService:Create(autoDigBg, info, {BackgroundColor3 = Color3.fromRGB(45, 45, 60)}):Play()
+		TweenService:Create(autoDigCircle, info, {Position = UDim2.new(0, 2, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 170)}):Play()
+	end
+end)
 
 createActionButton(RejoinPage, "Rejoin Server (Safe)", function()
 	pcall(function()
@@ -567,10 +670,9 @@ ToggleBtn.MouseButton1Click:Connect(function()
 	MainFrame.Visible = isOpen
 end)
 
---------------------------------------------------------------------
--- LOGIKA / SCRIPT UTAMA & FITUR ESP
---------------------------------------------------------------------
-
+-- ====================================================================
+-- LOGIKA UTAMA & KONTROL
+-- ====================================================================
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrystalDropRequest")
 
 local isAutoDropRunning = false
@@ -617,11 +719,8 @@ task.spawn(function()
 					if v:IsA("ProximityPrompt") then
 						local part = v.Parent
 						if part and part:IsA("BasePart") then
-							local objectName = part.Name:lower()
-							local parentName = part.Parent and part.Parent.Name:lower() or ""
-							if objectName:find("crystal") or parentName:find("crystal") then
-								local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
-								if distance <= targetRadius then
+							if part.Name:lower():find("crystal") or (part.Parent and part.Parent.Name:lower():find("crystal")) then
+								if (character.HumanoidRootPart.Position - part.Position).Magnitude <= targetRadius then
 									v.MaxActivationDistance = targetRadius
 									v.HoldDuration = 0
 									fireproximityprompt(v)
@@ -642,26 +741,175 @@ BtnInstanMine.MouseButton1Click:Connect(function()
 	setToggleState(BgInstanMine, CircleInstanMine, isInstanMineRunning)
 end)
 
-local function getRootPart()
-	local character = player.Character or player.CharacterAdded:Wait()
-	return character:FindFirstChild("HumanoidRootPart")
+-- AUTO FAST MINE
+local isFastMineRunning = false
+local TWEEN_SPEED = 120 
+local DETECTION_RADIUS = 50 
+local BASE_HOVER_HEIGHT = 5 
+
+local function getSafeHoverPosition(targetPart)
+	local topOffset = (targetPart.Size.Y / 2) + BASE_HOVER_HEIGHT
+	return targetPart.CFrame + Vector3.new(0, topOffset, 0)
 end
 
+local function tweenToFast(targetCFrame)
+	local _, _, hrp, _ = getCharacterParts()
+	local duration = (hrp.Position - targetCFrame.Position).Magnitude / TWEEN_SPEED
+	local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+	tween:Play()
+	tween.Completed:Wait()
+end
+
+local function getNearestNocturnitePart()
+	local _, _, hrp, _ = getCharacterParts()
+	if not hrp then return nil end
+	local nearestPart = nil
+	local shortestDistance = math.huge
+	local noctFolder = Workspace:FindFirstChild("MountainDecorations") and Workspace.MountainDecorations:FindFirstChild("Boulders") and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
+	if not noctFolder then return nil end
+
+	local baseCell = noctFolder:FindFirstChild("Nocturnite_cell")
+	if baseCell and baseCell:IsA("BasePart") then
+		shortestDistance = (hrp.Position - baseCell.Position).Magnitude
+		nearestPart = baseCell
+	end
+
+	for i = 1, 100 do
+		local targetPart = noctFolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
+		if targetPart and targetPart:IsA("BasePart") then
+			local dist = (hrp.Position - targetPart.Position).Magnitude
+			if dist < shortestDistance then
+				shortestDistance = dist
+				nearestPart = targetPart
+			end
+		end
+	end
+	return nearestPart
+end
+
+local function farmSinglePartFast(partName, targetPart)
+	local noctFolder = Workspace:FindFirstChild("MountainDecorations") and Workspace.MountainDecorations:FindFirstChild("Boulders") and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
+	local digReq = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("DigRequest")
+
+	while isFastMineRunning and targetPart and targetPart.Parent and targetPart:IsA("BasePart") do
+		equipTerminusDig()
+		local _, _, hrp, _ = getCharacterParts()
+		local safeTargetCFrame = getSafeHoverPosition(targetPart)
+		
+		if (hrp.Position - targetPart.Position).Magnitude > DETECTION_RADIUS then
+			tweenToFast(safeTargetCFrame)
+		else
+			hrp.CFrame = safeTargetCFrame
+		end
+		
+		if digReq then
+			digReq:FireServer("The Terminus", vector.create(targetPart.Position.X, targetPart.Position.Y, targetPart.Position.Z))
+		end
+		task.wait(0.3)
+		
+		targetPart = noctFolder and noctFolder:FindFirstChild(partName) or nil
+	end
+end
+
+local function startAutoFarmFast()
+	local noctFolder = Workspace:FindFirstChild("MountainDecorations") and Workspace.MountainDecorations:FindFirstChild("Boulders") and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
+	while isFastMineRunning do
+		if not noctFolder then break end
+		local foundAny = false
+		
+		local baseCell = noctFolder:FindFirstChild("Nocturnite_cell")
+		if baseCell and baseCell:IsA("BasePart") and isFastMineRunning then
+			foundAny = true
+			farmSinglePartFast("Nocturnite_cell", baseCell)
+		end
+
+		for i = 1, 100 do
+			if not isFastMineRunning then break end
+			local targetPart = noctfolder and noctfolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
+			if targetPart and targetPart:IsA("BasePart") and isFastMineRunning then
+				foundAny = true
+				farmSinglePartFast(string.format("Nocturnite_cell.%03d", i), targetPart)
+			end
+		end
+		task.wait(foundAny and 1 or 3)
+	end
+end
+
+local function fastMineAutomation()
+	local digReq = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("DigRequest")
+	local startTimeTween = tick()
+	
+	while isFastMineRunning and (tick() - startTimeTween < 5) do
+		local elapsed = tick() - startTimeTween
+		updateStatusBar(string.format("Tween Auto Dig: %.1fs", 5 - elapsed), elapsed / 5, Color3.fromRGB(200, 150, 50))
+		pcall(function()
+			equipTerminusDig()
+			local targetPart = getNearestNocturnitePart()
+			if targetPart then
+				local _, _, hrp, _ = getCharacterParts()
+				if (hrp.Position - targetPart.Position).Magnitude > DETECTION_RADIUS then
+					tweenToFast(getSafeHoverPosition(targetPart))
+				else
+					hrp.CFrame = getSafeHoverPosition(targetPart)
+				end
+				if digReq then digReq:FireServer("The Terminus", vector.create(targetPart.Position.X, targetPart.Position.Y, targetPart.Position.Z)) end
+			end
+		end)
+		task.wait(0.3)
+	end
+	
+	if isFastMineRunning then
+		updateStatusBar("Auto Farm: Running Sequence", 1, Color3.fromRGB(50, 200, 50))
+		task.spawn(startAutoFarmFast)
+		task.wait(8) 
+	end
+	
+	if isFastMineRunning then
+		local startTimeStatic = tick()
+		while isFastMineRunning and (tick() - startTimeStatic < 5) do
+			local elapsed = tick() - startTimeStatic
+			updateStatusBar(string.format("Auto Dig (Static): %.1fs", 5 - elapsed), elapsed / 5, Color3.fromRGB(50, 150, 200))
+			pcall(function()
+				equipTerminusDig()
+				local _, _, hrp, _ = getCharacterParts()
+				if hrp and digReq then
+					digReq:FireServer("The Terminus", vector.create(hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
+				end
+			end)
+			task.wait(0.3)
+		end
+		if isFastMineRunning then updateStatusBar("Auto Farm: Active", 1, Color3.fromRGB(50, 200, 50)) end
+	end
+end
+
+BtnFastMine.MouseButton1Click:Connect(function()
+	isFastMineRunning = not isFastMineRunning
+	Config.AutoFastMine = isFastMineRunning
+	saveConfig()
+	setToggleState(BgFastMine, CircleFastMine, isFastMineRunning)
+	if isFastMineRunning then
+		equipTerminusDig()
+		task.spawn(fastMineAutomation)
+	else
+		updateStatusBar("Status: Idle", 0, Color3.fromRGB(200, 50, 50))
+	end
+end)
+
+-- AUTO SELL
 local function executeSell()
 	pcall(function()
-		local rootPart = getRootPart()
-		if not rootPart then return end
-		local originalCFrame = rootPart.CFrame
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if not hrp then return end
+		local origCFrame = hrp.CFrame
 		local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 		if remotes then
-			local goHome = remotes:FindFirstChild("GoHome")
-			if goHome then goHome:FireServer("sell") end
+			if remotes:FindFirstChild("GoHome") then remotes.GoHome:FireServer("sell") end
 			task.wait(0.6)
-			local sellReq = remotes:FindFirstChild("SellRequest")
-			if sellReq then sellReq:FireServer("all") end
+			if remotes:FindFirstChild("SellRequest") then remotes.SellRequest:FireServer("all") end
 			task.wait(0.6)
-			local currentRoot = getRootPart()
-			if currentRoot then currentRoot.CFrame = originalCFrame end
+			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+				player.Character.HumanoidRootPart.CFrame = origCFrame
+			end
 		end
 	end)
 end
@@ -673,8 +921,8 @@ local function isBackpackFull()
 		if gui:IsA("TextLabel") or gui:IsA("TextButton") then
 			local text = string.lower(gui.Text)
 			if text:find("full") then return true end
-			local current, max = text:match("(%d+)%s*/%s*(%d+)")
-			if current and max and tonumber(current) >= tonumber(max) then return true end
+			local cur, max = text:match("(%d+)%s*/%s*(%d+)")
+			if cur and max and tonumber(cur) >= tonumber(max) then return true end
 		end
 	end
 	return false
@@ -701,668 +949,13 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
---------------------------------------------------------------------
--- INTEGRASI SCRIPT BARU (FARMING CRYSTAL BERDASARKAN HARGA)
---------------------------------------------------------------------
-local isFarmingCrystalRunning = false
-
-task.spawn(function()
-	local TWEEN_SPEED = 100
-	local noclipConnection
-	local gravityConnection
-	local currentTween = nil
-
-	local function setupSteppers(enable)
-		local character = player.Character or player.CharacterAdded:Wait()
-		local rootPart = character:WaitForChild("HumanoidRootPart")
-		local humanoid = character:WaitForChild("Humanoid")
-
-		if enable then
-			humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-			humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-
-			noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-				if character and character.Parent then
-					for _, part in ipairs(character:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = false
-						end
-					end
-				end
-			end)
-
-			gravityConnection = game:GetService("RunService").RenderStepped:Connect(function()
-				if rootPart and rootPart.Parent then
-					rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 0, rootPart.AssemblyLinearVelocity.Z)
-					rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-				end
-			end)
-		else
-			if noclipConnection then noclipConnection:Disconnect() end
-			if gravityConnection then gravityConnection:Disconnect() end
-		end
-	end
-
-	local function tweenTo(targetCFrame)
-		local character = player.Character
-		if not character then return end
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then return end
-
-		if currentTween then
-			currentTween:Cancel()
-			currentTween = nil
-		end
-
-		local distance = (rootPart.Position - targetCFrame.Position).Magnitude
-		if distance < 1 then return end
-		
-		local duration = distance / TWEEN_SPEED
-		local adjustedCFrame = CFrame.new(targetCFrame.Position) * rootPart.CFrame.Rotation
-		
-		local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-		currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = adjustedCFrame})
-		
-		currentTween:Play()
-		
-		local elapsed = 0
-		while elapsed < duration and currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing do
-			task.wait(0.05)
-			elapsed = elapsed + 0.05
-		end
-	end
-
-	local function getCrystalValue(crystal)
-		local val = crystal:GetAttribute("Value") or crystal:GetAttribute("Price") or crystal:GetAttribute("Worth") or crystal:GetAttribute("Tier")
-		if val and tonumber(val) then
-			return tonumber(val)
-		end
-		
-		for _, child in ipairs(crystal:GetChildren()) do
-			if (child:IsA("IntValue") or child:IsA("NumberValue")) and (child.Name:lower():find("value") or child.Name:lower():find("price") or child.Name:lower():find("worth")) then
-				return child.Value
-			end
-		end
-		
-		local name = crystal.Name:lower()
-		if name:find("diamond") or name:find("rainbow") or name:find("mythic") then
-			return 1000
-		elseif name:find("gold") or name:find("epic") then
-			return 500
-		elseif name:find("silver") or name:find("rare") then
-			return 100
-		end
-		
-		return 1
-	end
-
-	local function getAllCrystalsSorted()
-		local crystals = {}
-		
-		local droppedCrystals = workspace:FindFirstChild("DroppedCrystals")
-		if droppedCrystals then
-			for _, crystal in ipairs(droppedCrystals:GetChildren()) do
-				table.insert(crystals, crystal)
-			end
-		end
-		
-		local things = workspace:FindFirstChild("Things")
-		if things then
-			local crystalsFolder = things:FindFirstChild("Crystals")
-			if crystalsFolder then
-				for _, crystal in ipairs(crystalsFolder:GetChildren()) do
-					table.insert(crystals, crystal)
-				end
-			end
-		end
-		
-		for _, obj in ipairs(workspace:GetChildren()) do
-			if obj.Name:lower():find("crystal") then
-				local alreadyAdded = false
-				for _, c in ipairs(crystals) do
-					if c == obj then
-						alreadyAdded = true
-						break
-					end
-				end
-				if not alreadyAdded then
-					table.insert(crystals, obj)
-				end
-			end
-		end
-		
-		table.sort(crystals, function(a, b)
-			return getCrystalValue(a) > getCrystalValue(b)
-		end)
-		
-		return crystals
-	end
-
-	while true do
-		if isFarmingCrystalRunning then
-			setupSteppers(true)
-			pcall(function()
-				local crystals = getAllCrystalsSorted()
-				local character = player.Character
-				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-				
-				if #crystals > 0 and rootPart then
-					for _, crystal in ipairs(crystals) do
-						if not isFarmingCrystalRunning then break end
-						if crystal and crystal.Parent then
-							local targetPart = crystal:IsA("Model") and crystal.PrimaryPart or crystal
-							if not targetPart and crystal:IsA("Model") then
-								targetPart = crystal:FindFirstChildWhichIsA("BasePart")
-							end
-							
-							if targetPart and targetPart:IsA("BasePart") then
-								tweenTo(targetPart.CFrame)
-								
-								local startTime = tick()
-								while isFarmingCrystalRunning and crystal and crystal.Parent and (tick() - startTime < 4) do
-									rootPart.CFrame = CFrame.new(targetPart.Position) * rootPart.CFrame.Rotation
-									
-									local prompt = crystal:FindFirstChildWhichIsA("ProximityPrompt", true)
-									if prompt then
-										fireproximityprompt(prompt)
-									end
-									
-									if firetouchinterest then
-										firetouchinterest(rootPart, targetPart, 0)
-										task.wait(0.05)
-										firetouchinterest(rootPart, targetPart, 1)
-									end
-									
-									task.wait(0.1)
-								end
-							end
-						end
-					end
-				end
-			end)
-			setupSteppers(false)
-		end
-		task.wait(0.5)
-	end
-end)
-
-BtnFarmingCrystal.MouseButton1Click:Connect(function()
-	isFarmingCrystalRunning = not isFarmingCrystalRunning
-	Config.FarmingCrystal = isFarmingCrystalRunning
-	saveConfig()
-	setToggleState(BgFarmingCrystal, CircleFarmingCrystal, isFarmingCrystalRunning)
-end)
-
---------------------------------------------------------------------
--- INTEGRASI FITUR: CRYSTAL MUTASI TERMINUS (DIPERBARUI)
---------------------------------------------------------------------
-local isCrystalTerminusRunning = false
-
-task.spawn(function()
-	local TWEEN_SPEED = 100
-	local currentTween = nil
-	local noclipConnection, gravityConnection
-
-	local function equipPickaxe()
-		pcall(function()
-			local backpack = player:FindFirstChild("Backpack")
-			local char = player.Character
-			local humanoid = char and char:FindFirstChild("Humanoid")
-			if not backpack or not char or not humanoid then return end
-			
-			local alreadyEquipped = false
-			for _, item in ipairs(char:GetChildren()) do
-				if item:IsA("Tool") and (item.Name:lower():find("pickaxe") or item.Name:lower():find("terminus")) then
-					alreadyEquipped = true
-					break
-				end
-			end
-			
-			if not alreadyEquipped then
-				for _, item in ipairs(backpack:GetChildren()) do
-					if item:IsA("Tool") and (item.Name:lower():find("pickaxe") or item.Name:lower():find("terminus")) then
-						humanoid:EquipTool(item)
-						task.wait(0.1)
-						break
-					end
-				end
-			end
-		end)
-	end
-
-	local function setupSteppers(enable)
-		local character = player.Character or player.CharacterAdded:Wait()
-		local rootPart = character:WaitForChild("HumanoidRootPart")
-		local humanoid = character:WaitForChild("Humanoid")
-
-		if enable then
-			humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-			humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-
-			noclipConnection = RunService.Stepped:Connect(function()
-				if character and character.Parent then
-					for _, part in ipairs(character:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = false
-						end
-					end
-				end
-			end)
-
-			gravityConnection = RunService.RenderStepped:Connect(function()
-				if rootPart and rootPart.Parent then
-					rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 0, rootPart.AssemblyLinearVelocity.Z)
-					rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-				end
-			end)
-		else
-			if noclipConnection then noclipConnection:Disconnect() end
-			if gravityConnection then gravityConnection:Disconnect() end
-		end
-	end
-
-	local function tweenTo(targetCFrame)
-		local character = player.Character
-		if not character then return end
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then return end
-
-		if currentTween then
-			currentTween:Cancel()
-			currentTween = nil
-		end
-
-		local distance = (rootPart.Position - targetCFrame.Position).Magnitude
-		if distance < 1 then return end
-		
-		local duration = distance / TWEEN_SPEED
-		local adjustedCFrame = CFrame.new(targetCFrame.Position) * rootPart.CFrame.Rotation
-		
-		local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-		currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = adjustedCFrame})
-		
-		currentTween:Play()
-		
-		local elapsed = 0
-		while elapsed < duration and currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing do
-			task.wait(0.05)
-			elapsed = elapsed + 0.05
-		end
-	end
-
-	local function getTerminusMutationCrystals()
-		local crystals = {}
-		
-		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
-		if droppedCrystals then
-			for _, obj in ipairs(droppedCrystals:GetChildren()) do
-				local mutationAttr = obj:GetAttribute("Mutation")
-				if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
-					table.insert(crystals, obj)
-				end
-			end
-		end
-		
-		local things = Workspace:FindFirstChild("Things")
-		if things then
-			local crystalsFolder = things:FindFirstChild("Crystals")
-			if crystalsFolder then
-				for _, obj in ipairs(crystalsFolder:GetChildren()) do
-					local mutationAttr = obj:GetAttribute("Mutation")
-					if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
-						table.insert(crystals, obj)
-					end
-				end
-			end
-		end
-		
-		return crystals
-	end
-
-	while true do
-		if isCrystalTerminusRunning then
-			setupSteppers(true)
-			pcall(function()
-				local character = player.Character
-				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-				local crystals = getTerminusMutationCrystals()
-				
-				if #crystals > 0 and rootPart then
-					for _, crystal in ipairs(crystals) do
-						if not isCrystalTerminusRunning then break end
-						if crystal and crystal.Parent then
-							local targetPart = crystal:IsA("Model") and crystal.PrimaryPart or crystal
-							if not targetPart and crystal:IsA("Model") then
-								targetPart = crystal:FindFirstChildWhichIsA("BasePart")
-							end
-							if not targetPart and crystal:IsA("BasePart") then
-								targetPart = crystal
-							end
-							
-							if targetPart and targetPart:IsA("BasePart") then
-								tweenTo(targetPart.CFrame)
-								equipPickaxe()
-								
-								local startTime = tick()
-								while isCrystalTerminusRunning and crystal and crystal.Parent and (tick() - startTime < 4) do
-									rootPart.CFrame = CFrame.new(targetPart.Position) * rootPart.CFrame.Rotation
-									
-									local activeTool = character:FindFirstChildOfClass("Tool")
-									if activeTool then
-										activeTool:Activate()
-									end
-									
-									local prompt = crystal:FindFirstChildWhichIsA("ProximityPrompt", true)
-									if prompt then
-										prompt.MaxActivationDistance = 99999
-										prompt.HoldDuration = 0
-										fireproximityprompt(prompt)
-									end
-									
-									if firetouchinterest then
-										firetouchinterest(rootPart, targetPart, 0)
-										task.wait(0.02)
-										firetouchinterest(rootPart, targetPart, 1)
-									end
-									
-									task.wait(0.1)
-								end
-							end
-						end
-					end
-				end
-			end)
-			setupSteppers(false)
-		end
-		task.wait(0.5)
-	end
-end)
-
-BtnCrystalTerminus.MouseButton1Click:Connect(function()
-	isCrystalTerminusRunning = not isCrystalTerminusRunning
-	Config.CrystalMutasiTerminus = isCrystalTerminusRunning
-	saveConfig()
-	setToggleState(BgCrystalTerminus, CircleCrystalTerminus, isCrystalTerminusRunning)
-end)
-
-local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
-
-local TWEEN_SPEED_NOC = 90 
-local DETECTION_RADIUS = 50 
-local BASE_HOVER_HEIGHT = 5 
-
-local activeTween = nil
-local isNocturniteFarmRunning = false
-local isFloating = false
-
-local function equipTerminus()
-	local character = player.Character
-	if not character then return end
-	if character:FindFirstChild("The Terminus") then return end
-	
-	local backpack = player:FindFirstChild("Backpack")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if backpack and humanoid then
-		local tool = backpack:FindFirstChild("The Terminus")
-		if tool and tool:IsA("Tool") then
-			humanoid:EquipTool(tool)
-		end
-	end
-end
-
-local function startFloating()
-	local character = player.Character
-	if not character then return end
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoidRootPart or not humanoid then return end
-	
-	if isFloating then return end
-	isFloating = true
-	humanoid.PlatformStand = true
-	
-	if not humanoidRootPart:FindFirstChild("FloatVelocity") then
-		local bv = Instance.new("BodyVelocity")
-		bv.Name = "FloatVelocity"
-		bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-		bv.Velocity = Vector3.new(0, 0, 0)
-		bv.Parent = humanoidRootPart
-	end
-end
-
-local function stopFloating()
-	if activeTween then
-		activeTween:Cancel()
-		activeTween = nil
-	end
-	
-	isFloating = false
-	local character = player.Character
-	if not character then return end
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	
-	if humanoidRootPart and humanoidRootPart:FindFirstChild("FloatVelocity") then
-		humanoidRootPart.FloatVelocity:Destroy()
-	end
-	
-	if humanoid then
-		humanoid.PlatformStand = false
-	end
-end
-
-local function getSafeHoverPosition(targetPart)
-	local topOffset = (targetPart.Size.Y / 2) + BASE_HOVER_HEIGHT
-	return targetPart.CFrame + Vector3.new(0, topOffset, 0)
-end
-
-local function tweenToNocturnite(targetCFrame)
-	local character = player.Character
-	if not character then return end
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
-	
-	startFloating()
-	if activeTween then
-		activeTween:Cancel()
-		activeTween = nil
-	end
-	
-	local distance = (humanoidRootPart.Position - targetCFrame.Position).Magnitude
-	local duration = distance / TWEEN_SPEED_NOC
-	
-	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-	activeTween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = targetCFrame})
-	
-	activeTween:Play()
-	activeTween.Completed:Wait()
-	activeTween = nil
-end
-
-local function getNocturniteFolder()
-	local md = Workspace:FindFirstChild("MountainDecorations")
-	if not md then return nil end
-	local boulders = md:FindFirstChild("Boulders")
-	if not boulders then return nil end
-	return boulders:FindFirstChild("Nocturnite")
-end
-
-local function farmSinglePart(partName, targetPart)
-	while isNocturniteFarmRunning and targetPart and targetPart.Parent and targetPart:IsA("BasePart") do
-		equipTerminus()
-		
-		local character = player.Character
-		if not character or not character:FindFirstChild("HumanoidRootPart") then break end
-		local humanoidRootPart = character.HumanoidRootPart
-		
-		local safeTargetCFrame = getSafeHoverPosition(targetPart)
-		local distance = (humanoidRootPart.Position - targetPart.Position).Magnitude
-		
-		if distance > DETECTION_RADIUS then
-			tweenToNocturnite(safeTargetCFrame)
-		else
-			startFloating()
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(safeTargetCFrame, 0.3)
-		end
-		
-		digRequest:FireServer("The Terminus", targetPart.Position)
-		task.wait(0.3)
-		
-		local nocturniteFolder = getNocturniteFolder()
-		if nocturniteFolder then
-			targetPart = nocturniteFolder:FindFirstChild(partName)
-		else
-			break
-		end
-	end
-	stopFloating()
-end
-
-local function farmAllCells()
-	while isNocturniteFarmRunning do
-		local foundAny = false
-		local nocturniteFolder = getNocturniteFolder()
-		
-		if nocturniteFolder then
-			local baseCell = nocturniteFolder:FindFirstChild("Nocturnite_cell")
-			if baseCell and baseCell:IsA("BasePart") and isNocturniteFarmRunning then
-				foundAny = true
-				farmSinglePart("Nocturnite_cell", baseCell)
-			end
-
-			for i = 1, 29 do
-				if not isNocturniteFarmRunning then break end
-				local targetPart = nocturniteFolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
-				
-				if targetPart and targetPart:IsA("BasePart") and isNocturniteFarmRunning then
-					foundAny = true
-					farmSinglePart(string.format("Nocturnite_cell.%03d", i), targetPart)
-				end
-			end
-		end
-		
-		if not foundAny and isNocturniteFarmRunning then
-			stopFloating()
-			task.wait(3)
-		else
-			task.wait(1)
-		end
-	end
-	stopFloating()
-end
-
-BtnNocturnite.MouseButton1Click:Connect(function()
-	isNocturniteFarmRunning = not isNocturniteFarmRunning
-	Config.NocturniteFarm = isNocturniteFarmRunning
-	saveConfig()
-	setToggleState(BgNocturnite, CircleNocturnite, isNocturniteFarmRunning)
-	if isNocturniteFarmRunning then
-		equipTerminus()
-		task.spawn(farmAllCells)
-	else
-		stopFloating()
-	end
-end)
-
-local isCollectRuneRunning = false
-local isCollectingRuneState = false
-
-RunService.Stepped:Connect(function()
-	if isCollectingRuneState then
-		local character = player.Character
-		if character then
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.CanCollide = false
-					part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-					part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-				end
-			end
-		end
-	else
-		local character = player.Character
-		if character then
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					part.CanCollide = true
-				end
-			end
-		end
-	end
-end)
-
-task.spawn(function()
-	while true do
-		task.wait(0.2)
-		if isCollectRuneRunning then
-			pcall(function()
-				local character = player.Character
-				if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-				local rootPart = character.HumanoidRootPart
-				
-				for _, v in ipairs(Workspace:GetDescendants()) do
-					if not isCollectRuneRunning then break end
-					if v:IsA("ProximityPrompt") then
-						local part = v.Parent
-						if part and part:IsA("BasePart") then
-							local objectName = part.Name:lower()
-							local parentName = part.Parent and part.Parent.Name:lower() or ""
-							local fullName = v:GetFullName():lower()
-							
-							local isPlaced = fullName:find("plot") or fullName:find("base") or fullName:find("placed") or parentName:find("plot")
-							
-							if not isPlaced then
-								if objectName:find("rune") or parentName:find("rune") or v.ActionText:lower() == "collect" then
-									isCollectingRuneState = true
-									
-									v.MaxActivationDistance = 99999
-									v.HoldDuration = 0
-									
-									rootPart.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-									
-									for i = 1, 3 do
-										if not isCollectRuneRunning then break end
-										fireproximityprompt(v)
-										task.wait(0.02)
-									end
-									
-									task.wait(0.05)
-									isCollectingRuneState = false
-								end
-							end
-						end
-					end
-				end
-			end)
-		end
-	end
-end)
-
-BtnRune.MouseButton1Click:Connect(function()
-	isCollectRuneRunning = not isCollectRuneRunning
-	Config.CollectRune = isCollectRuneRunning
-	saveConfig()
-	setToggleState(BgRune, CircleRune, isCollectRuneRunning)
-	if not isCollectRuneRunning then
-		isCollectingRuneState = false
-	end
-end)
-
---------------------------------------------------------------------
--- INTEGRASI FITUR: INFINITY JUMP
---------------------------------------------------------------------
+-- INFINITY JUMP
 local isInfJumpRunning = false
-
 UserInputService.JumpRequest:Connect(function()
 	if isInfJumpRunning then
 		pcall(function()
-			local character = player.Character
-			if character then
-				local humanoid = character:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-				end
-			end
+			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 		end)
 	end
 end)
@@ -1374,62 +967,32 @@ BtnInfJump.MouseButton1Click:Connect(function()
 	setToggleState(BgInfJump, CircleInfJump, isInfJumpRunning)
 end)
 
---------------------------------------------------------------------
--- SISTEM ESP (TERMINUS & NOCTURNITE)
---------------------------------------------------------------------
+-- ESP SYSTEM (Terminus & Nocturnite)
 local isEspTerminusRunning = false
 local isEspNocturniteRunning = false
 
 local function addTerminusESP(crystal)
 	pcall(function()
-		local isTerminus = false
-		local mutationAttr = crystal:GetAttribute("Mutation")
-		if mutationAttr and tostring(mutationAttr):lower() == "terminus" then
-			isTerminus = true
-		end
-		
-		if isTerminus and not crystal:FindFirstChild("TerminusESP") then
-			local espFolder = Instance.new("Folder")
-			espFolder.Name = "TerminusESP"
-			espFolder.Parent = crystal
-
-			local highlight = Instance.new("Highlight")
-			highlight.Name = "HighlightESP"
-			highlight.Adornee = crystal
-			highlight.FillColor = Color3.fromRGB(255, 0, 0)
-			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-			highlight.FillTransparency = 0.4
-			highlight.OutlineTransparency = 0
-			highlight.Parent = espFolder
-
-			local billboard = Instance.new("BillboardGui")
-			billboard.Name = "TextESP"
-			billboard.Adornee = crystal
-			billboard.Size = UDim2.new(0, 100, 0, 50)
-			billboard.StudsOffset = Vector3.new(0, 2, 0)
-			billboard.AlwaysOnTop = true
-
-			local textLabel = Instance.new("TextLabel")
-			textLabel.Size = UDim2.new(1, 0, 1, 0)
-			textLabel.BackgroundTransparency = 1
-			textLabel.Text = "TERMINUS"
-			textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-			textLabel.TextScaled = true
-			textLabel.Font = Enum.Font.SourceSansBold
-			textLabel.TextStrokeTransparency = 0
-			textLabel.Parent = billboard
-
-			billboard.Parent = espFolder
-		elseif not isTerminus then
-			local esp = crystal:FindFirstChild("TerminusESP")
-			if esp then esp:Destroy() end
-		end
-	end)
-end
-
-local function removeTerminusESP(crystal)
-	pcall(function()
-		if crystal and crystal:FindFirstChild("TerminusESP") then
+		if crystal:GetAttribute("Mutation") == "Terminus" and not crystal:FindFirstChild("TerminusESP") then
+			local f = Instance.new("Folder", crystal)
+			f.Name = "TerminusESP"
+			local h = Instance.new("Highlight", f)
+			h.Adornee = crystal
+			h.FillColor = Color3.fromRGB(255, 0, 0)
+			h.FillTransparency = 0.4
+			local bb = Instance.new("BillboardGui", f)
+			bb.Adornee = crystal
+			bb.Size = UDim2.new(0, 100, 0, 50)
+			bb.StudsOffset = Vector3.new(0, 2, 0)
+			bb.AlwaysOnTop = true
+			local tl = Instance.new("TextLabel", bb)
+			tl.Size = UDim2.new(1, 0, 1, 0)
+			tl.BackgroundTransparency = 1
+			tl.Text = "TERMINUS"
+			tl.TextColor3 = Color3.fromRGB(255, 50, 50)
+			tl.TextScaled = true
+			tl.Font = Enum.Font.SourceSansBold
+		elseif crystal:GetAttribute("Mutation") ~= "Terminus" and crystal:FindFirstChild("TerminusESP") then
 			crystal.TerminusESP:Destroy()
 		end
 	end)
@@ -1438,48 +1001,25 @@ end
 local function addNocturniteESPToModel(modelOrFolder)
 	pcall(function()
 		local primaryPart = modelOrFolder:IsA("Model") and modelOrFolder.PrimaryPart or modelOrFolder:FindFirstChildWhichIsA("BasePart")
-		
 		if primaryPart and not modelOrFolder:FindFirstChild("NocturniteESP") then
-			local highlight = Instance.new("Highlight")
-			highlight.Name = "NocturniteESP"
-			highlight.Adornee = modelOrFolder
-			highlight.FillColor = Color3.fromRGB(0, 170, 255)
-			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-			highlight.FillTransparency = 0.4
-			highlight.OutlineTransparency = 0
-			highlight.Parent = modelOrFolder
-
-			local billboard = Instance.new("BillboardGui")
-			billboard.Name = "NocturniteTag"
-			billboard.Adornee = primaryPart
-			billboard.Size = UDim2.new(0, 120, 0, 50)
-			billboard.StudsOffset = Vector3.new(0, 3, 0)
-			billboard.AlwaysOnTop = true
-			billboard.MaxDistance = math.huge
-
-			local textLabel = Instance.new("TextLabel")
-			textLabel.Size = UDim2.new(1, 0, 1, 0)
-			textLabel.BackgroundTransparency = 1
-			textLabel.Text = "Nocturnite"
-			textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			textLabel.TextScaled = true
-			textLabel.Font = Enum.Font.SourceSansBold
-			textLabel.TextStrokeTransparency = 0
-			textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-			textLabel.Parent = billboard
-
-			billboard.Parent = modelOrFolder
-		end
-	end)
-end
-
-local function removeNocturniteESPFromModel(modelOrFolder)
-	pcall(function()
-		if modelOrFolder and modelOrFolder:IsA("Instance") then
-			local esp = modelOrFolder:FindFirstChild("NocturniteESP")
-			if esp then esp:Destroy() end
-			local tag = modelOrFolder:FindFirstChild("NocturniteTag")
-			if tag then tag:Destroy() end
+			local h = Instance.new("Highlight", modelOrFolder)
+			h.Name = "NocturniteESP"
+			h.Adornee = modelOrFolder
+			h.FillColor = Color3.fromRGB(0, 170, 255)
+			h.FillTransparency = 0.4
+			local bb = Instance.new("BillboardGui", modelOrFolder)
+			bb.Name = "NocturniteTag"
+			bb.Adornee = primaryPart
+			bb.Size = UDim2.new(0, 120, 0, 50)
+			bb.StudsOffset = Vector3.new(0, 3, 0)
+			bb.AlwaysOnTop = true
+			local tl = Instance.new("TextLabel", bb)
+			tl.Size = UDim2.new(1, 0, 1, 0)
+			tl.BackgroundTransparency = 1
+			tl.Text = "Nocturnite"
+			tl.TextColor3 = Color3.fromRGB(255, 255, 255)
+			tl.TextScaled = true
+			tl.Font = Enum.Font.SourceSansBold
 		end
 	end)
 end
@@ -1487,38 +1027,22 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.5)
-		
 		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
-		if isEspTerminusRunning and droppedCrystals then
+		if droppedCrystals then
 			for _, child in ipairs(droppedCrystals:GetChildren()) do
-				addTerminusESP(child)
-			end
-		elseif droppedCrystals then
-			for _, child in ipairs(droppedCrystals:GetChildren()) do
-				removeTerminusESP(child)
+				if isEspTerminusRunning then addTerminusESP(child) elseif child:FindFirstChild("TerminusESP") then child.TerminusESP:Destroy() end
 			end
 		end
-
+		
 		pcall(function()
-			local bouldersFolder = Workspace:FindFirstChild("MountainDecorations") 
-				and Workspace.MountainDecorations:FindFirstChild("Boulders") 
-				and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
-				
-			if isEspNocturniteRunning and bouldersFolder then
-				if bouldersFolder:IsA("Folder") then
-					for _, child in ipairs(bouldersFolder:GetChildren()) do
-						addNocturniteESPToModel(child)
+			local boulders = Workspace:FindFirstChild("MountainDecorations") and Workspace.MountainDecorations:FindFirstChild("Boulders") and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
+			if boulders then
+				local items = boulders:IsA("Folder") and boulders:GetChildren() or {boulders}
+				for _, item in ipairs(items) do
+					if isEspNocturniteRunning then addNocturniteESPToModel(item) else
+						if item:FindFirstChild("NocturniteESP") then item.NocturniteESP:Destroy() end
+						if item:FindFirstChild("NocturniteTag") then item.NocturniteTag:Destroy() end
 					end
-				else
-					addNocturniteESPToModel(bouldersFolder)
-				end
-			elseif bouldersFolder then
-				if bouldersFolder:IsA("Folder") then
-					for _, child in ipairs(bouldersFolder:GetChildren()) do
-						removeNocturniteESPFromModel(child)
-					end
-				else
-					removeNocturniteESPFromModel(bouldersFolder)
 				end
 			end
 		end)
@@ -1530,14 +1054,6 @@ BtnESP1.MouseButton1Click:Connect(function()
 	Config.MutasiTerminus = isEspTerminusRunning
 	saveConfig()
 	setToggleState(BgESP1, CircleESP1, isEspTerminusRunning)
-	if not isEspTerminusRunning then
-		local droppedCrystals = Workspace:FindFirstChild("DroppedCrystals")
-		if droppedCrystals then
-			for _, child in ipairs(droppedCrystals:GetChildren()) do
-				removeTerminusESP(child)
-			end
-		end
-	end
 end)
 
 BtnESP2.MouseButton1Click:Connect(function()
@@ -1545,84 +1061,19 @@ BtnESP2.MouseButton1Click:Connect(function()
 	Config.NocturniteESP = isEspNocturniteRunning
 	saveConfig()
 	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
-	if not isEspNocturniteRunning then
-		pcall(function()
-			local bouldersFolder = Workspace:FindFirstChild("MountainDecorations") 
-				and Workspace.MountainDecorations:FindFirstChild("Boulders") 
-				and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
-			if bouldersFolder then
-				if bouldersFolder:IsA("Folder") then
-					for _, child in ipairs(bouldersFolder:GetChildren()) do
-						removeNocturniteESPFromModel(child)
-					end
-				else
-					removeNocturniteESPFromModel(bouldersFolder)
-				end
-			end
-		end)
-	end
 end)
 
+-- AUTO-LOAD CONFIG STATES WHEN SCRIPT STARTS
 task.spawn(function()
 	task.wait(0.5)
-	
-	if Config.AutoDrop then
-		isAutoDropRunning = true
-		setToggleState(Bg1, Circle1, true, true)
-		task.spawn(runAutoDrop)
-	end
-	
-	if Config.InstanMineCrystal then
-		isInstanMineRunning = true
-		setToggleState(BgInstanMine, CircleInstanMine, true, true)
-	end
-	
-	if Config.AutoSell then
-		isSellRunning = true
-		setToggleState(Bg3, Circle3, true, true)
-	end
-
-	if Config.FarmingCrystal then
-		isFarmingCrystalRunning = true
-		setToggleState(BgFarmingCrystal, CircleFarmingCrystal, true, true)
-	end
-
-	if Config.CrystalMutasiTerminus then
-		isCrystalTerminusRunning = true
-		setToggleState(BgCrystalTerminsi, CircleCrystalTerminus, true, true)
-	end
-	
-	if Config.NocturniteFarm then
-		isNocturniteFarmRunning = true
-		setToggleState(BgNocturnite, CircleNocturnite, true, true)
-		equipTerminus()
-		task.spawn(farmAllCells)
-	end
-
-	if Config.CollectRune then
-		isCollectRuneRunning = true
-		setToggleState(BgRune, CircleRune, true, true)
-	end
-
-	if Config.DropRune then
-		isDropRuneRunning = true
-		updateDropRuneToggle()
-	end
-	
-	if Config.MutasiTerminus then
-		isEspTerminusRunning = true
-		setToggleState(BgESP1, CircleESP1, true, true)
-	end
-	
-	if Config.NocturniteESP then
-		isEspNocturniteRunning = true
-		setToggleState(BgESP2, CircleESP2, true, true)
-	end
-
-	if Config.InfinityJump then
-		isInfJumpRunning = true
-		setToggleState(BgInfJump, CircleInfJump, true, true)
-	end
+	if Config.AutoDrop then isAutoDropRunning = true; setToggleState(Bg1, Circle1, true, true); task.spawn(runAutoDrop) end
+	if Config.InstanMineCrystal then isInstanMineRunning = true; setToggleState(BgInstanMine, CircleInstanMine, true, true) end
+	if Config.AutoFastMine then isFastMineRunning = true; setToggleState(BgFastMine, CircleFastMine, true, true); equipTerminusDig(); task.spawn(fastMineAutomation) end
+	if Config.AutoSell then isSellRunning = true; setToggleState(Bg3, Circle3, true, true) end
+	if Config.DropRune then isDropRuneRunning = true; updateDropRuneToggle() end
+	if Config.MutasiTerminus then isEspTerminusRunning = true; setToggleState(BgESP1, CircleESP1, true, true) end
+	if Config.NocturniteESP then isEspNocturniteRunning = true; setToggleState(BgESP2, CircleESP2, true, true) end
+	if Config.InfinityJump then isInfJumpRunning = true; setToggleState(BgInfJump, CircleInfJump, true, true) end
 end)
 
-print("Mine A Mountain Berhasil Dimuat!")
+print("Mine A Mountain Berhasil Dimuat dengan Auto Save & Load Config!")
