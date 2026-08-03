@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine a Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Drop Rune)
+-- Mine A Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Drop Rune)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -19,13 +19,14 @@ local CONFIG_FILE = "RgxHub_Config.json"
 
 local Config = {
 	AutoDrop = false,
-	AutoFarm = false,
+	InstanMineCrystal = false,
 	AutoSell = false,
 	NocturniteFarm = false,
 	CollectRune = false,
 	MutasiTerminus = false,
 	NocturniteESP = false,
-	DropRune = false
+	DropRune = false,
+	FarmingCrystal = false
 }
 
 local function saveConfig()
@@ -49,13 +50,13 @@ end
 loadConfig()
 
 -- Hapus GUI lama jika ada agar tidak menumpuk
-if CoreGui:FindFirstChild("MineMountGUI") then
-	CoreGui.MineMountGUI:Destroy()
+if CoreGui:FindFirstChild("FarmCrystalGUI") then
+	CoreGui.FarmCrystalGUI:Destroy()
 end
 
 -- Buat ScreenGui utama
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MineMountGUI"
+ScreenGui.Name = "FarmCrystalGUI"
 ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -124,7 +125,7 @@ TitleLabel.BackgroundTransparency = 1
 TitleLabel.Position = UDim2.new(0, 12, 0, 0)
 TitleLabel.Size = UDim2.new(1, -12, 1, 0)
 TitleLabel.Font = Enum.Font.GothamMedium
-TitleLabel.Text = "Mine a Mountain | Rgx Hub"
+TitleLabel.Text = "Mine A Mountain | Rgx Hub"
 TitleLabel.TextColor3 = Color3.fromRGB(190, 190, 210)
 TitleLabel.TextSize = 11
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -168,7 +169,7 @@ local function createPageContainer()
 	container.BackgroundTransparency = 1
 	container.Position = UDim2.new(0, 98, 0, 42)
 	container.Size = UDim2.new(1, -106, 1, -50)
-	container.CanvasSize = UDim2.new(0, 0, 0, 280)
+	container.CanvasSize = UDim2.new(0, 0, 0, 320)
 	container.ScrollBarThickness = 2
 	container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 	container.Visible = false
@@ -259,8 +260,9 @@ local function createToggleFeature(parent, labelText)
 end
 
 local Btn1, Bg1, Circle1 = createToggleFeature(MiningPage, "Auto Drop")
-local Btn2, Bg2, Circle2 = createToggleFeature(MiningPage, "Auto Farm")
+local BtnInstanMine, BgInstanMine, CircleInstanMine = createToggleFeature(MiningPage, "Instan Mine Crystal")
 local Btn3, Bg3, Circle3 = createToggleFeature(MiningPage, "Auto Sell")
+local BtnFarmingCrystal, BgFarmingCrystal, CircleFarmingCrystal = createToggleFeature(MiningPage, "Farming Crystal")
 local BtnNocturnite, BgNocturnite, CircleNocturnite = createToggleFeature(MiningPage, "Nocturnite Farm")
 local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Rune")
 
@@ -268,7 +270,7 @@ local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminu
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
 
 -- ====================================================================
--- FITUR DROP RUNE (DITAMBAHKAN "Storm Rune")
+-- FITUR DROP RUNE
 -- ====================================================================
 local runeList = {
 	"Weight Rune",
@@ -280,7 +282,7 @@ local runeList = {
 	"Luck Rune",
 	"Excavator Rune",
 	"Fortune Rune",
-	"Storm Rune" -- Ditambahkan sesuai permintaan
+	"Storm Rune"
 }
 
 local selectedRunes = {}
@@ -580,11 +582,11 @@ Btn1.MouseButton1Click:Connect(function()
 	if isAutoDropRunning then task.spawn(runAutoDrop) end
 end)
 
-local isFarmRunning = false
+local isInstanMineRunning = false
 task.spawn(function()
 	while true do
 		task.wait(0.3)
-		if isFarmRunning then
+		if isInstanMineRunning then
 			pcall(function()
 				local character = player.Character
 				if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -611,11 +613,11 @@ task.spawn(function()
 	end
 end)
 
-Btn2.MouseButton1Click:Connect(function()
-	isFarmRunning = not isFarmRunning
-	Config.AutoFarm = isFarmRunning
+BtnInstanMine.MouseButton1Click:Connect(function()
+	isInstanMineRunning = not isInstanMineRunning
+	Config.InstanMineCrystal = isInstanMineRunning
 	saveConfig()
-	setToggleState(Bg2, Circle2, isFarmRunning)
+	setToggleState(BgInstanMine, CircleInstanMine, isInstanMineRunning)
 end)
 
 local function getRootPart()
@@ -677,10 +679,202 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
+--------------------------------------------------------------------
+-- INTEGRASI SCRIPT BARU (FARMING CRYSTAL BERDASARKAN HARGA)
+--------------------------------------------------------------------
+local isFarmingCrystalRunning = false
+
+task.spawn(function()
+	local TWEEN_SPEED = 100
+	local noclipConnection
+	local gravityConnection
+	local currentTween = nil
+
+	local function setupSteppers(enable)
+		local character = player.Character or player.CharacterAdded:Wait()
+		local rootPart = character:WaitForChild("HumanoidRootPart")
+		local humanoid = character:WaitForChild("Humanoid")
+
+		if enable then
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+
+			noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+				if character and character.Parent then
+					for _, part in ipairs(character:GetDescendants()) do
+						if part:IsA("BasePart") then
+							part.CanCollide = false
+						end
+					end
+				end
+			end)
+
+			gravityConnection = game:GetService("RunService").RenderStepped:Connect(function()
+				if rootPart and rootPart.Parent then
+					rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 0, rootPart.AssemblyLinearVelocity.Z)
+					rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+				end
+			end)
+		else
+			if noclipConnection then noclipConnection:Disconnect() end
+			if gravityConnection then gravityConnection:Disconnect() end
+		end
+	end
+
+	local function tweenTo(targetCFrame)
+		local character = player.Character
+		if not character then return end
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+
+		if currentTween then
+			currentTween:Cancel()
+			currentTween = nil
+		end
+
+		local distance = (rootPart.Position - targetCFrame.Position).Magnitude
+		if distance < 1 then return end
+		
+		local duration = distance / TWEEN_SPEED
+		local adjustedCFrame = CFrame.new(targetCFrame.Position) * rootPart.CFrame.Rotation
+		
+		local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+		currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = adjustedCFrame})
+		
+		currentTween:Play()
+		
+		local elapsed = 0
+		while elapsed < duration and currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing do
+			task.wait(0.05)
+			elapsed = elapsed + 0.05
+		end
+	end
+
+	local function getCrystalValue(crystal)
+		local val = crystal:GetAttribute("Value") or crystal:GetAttribute("Price") or crystal:GetAttribute("Worth") or crystal:GetAttribute("Tier")
+		if val and tonumber(val) then
+			return tonumber(val)
+		end
+		
+		for _, child in ipairs(crystal:GetChildren()) do
+			if (child:IsA("IntValue") or child:IsA("NumberValue")) and (child.Name:lower():find("value") or child.Name:lower():find("price") or child.Name:lower():find("worth")) then
+				return child.Value
+			end
+		end
+		
+		local name = crystal.Name:lower()
+		if name:find("diamond") or name:find("rainbow") or name:find("mythic") then
+			return 1000
+		elseif name:find("gold") or name:find("epic") then
+			return 500
+		elseif name:find("silver") or name:find("rare") then
+			return 100
+		end
+		
+		return 1
+	end
+
+	local function getAllCrystalsSorted()
+		local crystals = {}
+		
+		local droppedCrystals = workspace:FindFirstChild("DroppedCrystals")
+		if droppedCrystals then
+			for _, crystal in ipairs(droppedCrystals:GetChildren()) do
+				table.insert(crystals, crystal)
+			end
+		end
+		
+		local things = workspace:FindFirstChild("Things")
+		if things then
+			local crystalsFolder = things:FindFirstChild("Crystals")
+			if crystalsFolder then
+				for _, crystal in ipairs(crystalsFolder:GetChildren()) do
+					table.insert(crystals, crystal)
+				end
+			end
+		end
+		
+		for _, obj in ipairs(workspace:GetChildren()) do
+			if obj.Name:lower():find("crystal") then
+				local alreadyAdded = false
+				for _, c in ipairs(crystals) do
+					if c == obj then
+						alreadyAdded = true
+						break
+					end
+				end
+				if not alreadyAdded then
+					table.insert(crystals, obj)
+				end
+			end
+		end
+		
+		table.sort(crystals, function(a, b)
+			return getCrystalValue(a) > getCrystalValue(b)
+		end)
+		
+		return crystals
+	end
+
+	while true do
+		if isFarmingCrystalRunning then
+			setupSteppers(true)
+			pcall(function()
+				local crystals = getAllCrystalsSorted()
+				local character = player.Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+				
+				if #crystals > 0 and rootPart then
+					for _, crystal in ipairs(crystals) do
+						if not isFarmingCrystalRunning then break end
+						if crystal and crystal.Parent then
+							local targetPart = crystal:IsA("Model") and crystal.PrimaryPart or crystal
+							if not targetPart and crystal:IsA("Model") then
+								targetPart = crystal:FindFirstChildWhichIsA("BasePart")
+							end
+							
+							if targetPart and targetPart:IsA("BasePart") then
+								tweenTo(targetPart.CFrame)
+								
+								local startTime = tick()
+								while isFarmingCrystalRunning and crystal and crystal.Parent and (tick() - startTime < 4) do
+									rootPart.CFrame = CFrame.new(targetPart.Position) * rootPart.CFrame.Rotation
+									
+									local prompt = crystal:FindFirstChildWhichIsA("ProximityPrompt", true)
+									if prompt then
+										fireproximityprompt(prompt)
+									end
+									
+									if firetouchinterest then
+										firetouchinterest(rootPart, targetPart, 0)
+										task.wait(0.05)
+										firetouchinterest(rootPart, targetPart, 1)
+									end
+									
+									task.wait(0.1)
+								end
+							end
+						end
+					end
+				end
+			end)
+			setupSteppers(false)
+		end
+		task.wait(0.5)
+	end
+end)
+
+BtnFarmingCrystal.MouseButton1Click:Connect(function()
+	isFarmingCrystalRunning = not isFarmingCrystalRunning
+	Config.FarmingCrystal = isFarmingCrystalRunning
+	saveConfig()
+	setToggleState(BgFarmingCrystal, CircleFarmingCrystal, isFarmingCrystalRunning)
+end)
+
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
-local TWEEN_SPEED = 90 
+local TWEEN_SPEED_NOC = 90 
 local DETECTION_RADIUS = 50 
 local BASE_HOVER_HEIGHT = 5 
 
@@ -749,7 +943,7 @@ local function getSafeHoverPosition(targetPart)
 	return targetPart.CFrame + Vector3.new(0, topOffset, 0)
 end
 
-local function tweenTo(targetCFrame)
+local function tweenToNocturnite(targetCFrame)
 	local character = player.Character
 	if not character then return end
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
@@ -762,7 +956,7 @@ local function tweenTo(targetCFrame)
 	end
 	
 	local distance = (humanoidRootPart.Position - targetCFrame.Position).Magnitude
-	local duration = distance / TWEEN_SPEED
+	local duration = distance / TWEEN_SPEED_NOC
 	
 	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 	activeTween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = targetCFrame})
@@ -784,7 +978,7 @@ local function farmSinglePart(partName, targetPart)
 		local distance = (humanoidRootPart.Position - targetPart.Position).Magnitude
 		
 		if distance > DETECTION_RADIUS then
-			tweenTo(safeTargetCFrame)
+			tweenToNocturnite(safeTargetCFrame)
 		else
 			startFloating()
 			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(safeTargetCFrame, 0.3)
@@ -1084,14 +1278,19 @@ task.spawn(function()
 		task.spawn(runAutoDrop)
 	end
 	
-	if Config.AutoFarm then
-		isFarmRunning = true
-		setToggleState(Bg2, Circle2, true, true)
+	if Config.InstanMineCrystal then
+		isInstanMineRunning = true
+		setToggleState(BgInstanMine, CircleInstanMine, true, true)
 	end
 	
 	if Config.AutoSell then
 		isSellRunning = true
 		setToggleState(Bg3, Circle3, true, true)
+	end
+
+	if Config.FarmingCrystal then
+		isFarmingCrystalRunning = true
+		setToggleState(BgFarmingCrystal, CircleFarmingCrystal, true, true)
 	end
 	
 	if Config.NocturniteFarm then
@@ -1122,4 +1321,4 @@ task.spawn(function()
 	end
 end)
 
-print("Rgx Hub Berhasil Dimuat!")
+print("Mine A Mountain Berhasil Dimuat!")
