@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- ====================================================================
@@ -27,7 +28,8 @@ local Config = {
 	NocturniteESP = false,
 	DropRune = false,
 	FarmingCrystal = false,
-	CrystalMutasiTerminus = false
+	CrystalMutasiTerminus = false,
+	InfinityJump = false
 }
 
 local function saveConfig()
@@ -188,6 +190,7 @@ MiningPage.Visible = true
 
 local ESPPage = createPageContainer()
 local RunePage = createPageContainer()
+local MiscPage = createPageContainer()
 local RejoinPage = createPageContainer()
 
 local function createCategoryLabel(parent, text)
@@ -205,6 +208,7 @@ end
 createCategoryLabel(MiningPage, "Autopilot / Actions")
 createCategoryLabel(ESPPage, "Visual / ESP")
 createCategoryLabel(RunePage, "Rune Management")
+createCategoryLabel(MiscPage, "Miscellaneous")
 createCategoryLabel(RejoinPage, "Server Controls")
 
 local function createToggleFeature(parent, labelText)
@@ -270,6 +274,8 @@ local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Run
 
 local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminus")
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
+
+local BtnInfJump, BgInfJump, CircleInfJump = createToggleFeature(MiscPage, "Infinity Jump")
 
 -- ====================================================================
 -- FITUR DROP RUNE
@@ -539,6 +545,7 @@ end
 createSidebarButton("Mining", MiningPage, true)
 createSidebarButton("ESP", ESPPage, false)
 createSidebarButton("Rune", RunePage, false)
+createSidebarButton("Misc", MiscPage, false)
 createSidebarButton("Rejoin", RejoinPage, false)
 
 local isOpen = true
@@ -1296,6 +1303,32 @@ BtnRune.MouseButton1Click:Connect(function()
 	end
 end)
 
+--------------------------------------------------------------------
+-- INTEGRASI FITUR: INFINITY JUMP
+--------------------------------------------------------------------
+local isInfJumpRunning = false
+
+UserInputService.JumpRequest:Connect(function()
+	if isInfJumpRunning then
+		pcall(function()
+			local character = player.Character
+			if character then
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end
+		end)
+	end
+end)
+
+BtnInfJump.MouseButton1Click:Connect(function()
+	isInfJumpRunning = not isInfJumpRunning
+	Config.InfinityJump = isInfJumpRunning
+	saveConfig()
+	setToggleState(BgInfJump, CircleInfJump, isInfJumpRunning)
+end)
+
 local isEspTerminusRunning = false
 
 local function addTerminusESP(crystal)
@@ -1501,6 +1534,11 @@ task.spawn(function()
 	if Config.NocturniteESP then
 		isEspNocturniteRunning = true
 		setToggleState(BgESP2, CircleESP2, true, true)
+	end
+
+	if Config.InfinityJump then
+		isInfJumpRunning = true
+		setToggleState(BgInfJump, CircleInfJump, true, true)
 	end
 end)
 
