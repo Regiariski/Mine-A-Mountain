@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine A Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Drop Rune)
+-- Mine A Mountain | Rgx Hub (Combined UI, Nocturnite Farm, Rejoin & Infinity Jump)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
@@ -27,7 +28,10 @@ local Config = {
 	NocturniteESP = false,
 	DropRune = false,
 	FarmingCrystal = false,
-	CrystalMutasiTerminus = false
+	CrystalMutasiTerminus = false,
+	AutoDigMisc = true,
+	MiscDuration = "10s",
+	InfinityJump = false -- Ditambahkan agar status Infinity Jump ikut tersimpan
 }
 
 local function saveConfig()
@@ -188,6 +192,7 @@ MiningPage.Visible = true
 
 local ESPPage = createPageContainer()
 local RunePage = createPageContainer()
+local MiscPage = createPageContainer()
 local RejoinPage = createPageContainer()
 
 local function createCategoryLabel(parent, text)
@@ -205,6 +210,7 @@ end
 createCategoryLabel(MiningPage, "Autopilot / Actions")
 createCategoryLabel(ESPPage, "Visual / ESP")
 createCategoryLabel(RunePage, "Rune Management")
+createCategoryLabel(MiscPage, "Miscellaneous")
 createCategoryLabel(RejoinPage, "Server Controls")
 
 local function createToggleFeature(parent, labelText)
@@ -345,7 +351,7 @@ DropdownButton.Parent = RunePage
 DropdownButton.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
 DropdownButton.Size = UDim2.new(1, -8, 0, 32)
 DropdownButton.TextColor3 = Color3.fromRGB(220, 220, 235)
-DropdownButton.Text = "  Select Runes 鈻�"
+DropdownButton.Text = "  Select Runes ▼"
 DropdownButton.TextXAlignment = Enum.TextXAlignment.Left
 DropdownButton.TextSize = 9
 DropdownButton.Font = Enum.Font.GothamMedium
@@ -395,7 +401,7 @@ for _, runeName in ipairs(runeList) do
 	ItemButton.MouseButton1Click:Connect(function()
 		selectedRunes[runeName] = not selectedRunes[runeName]
 		if selectedRunes[runeName] then
-			ItemButton.Text = "  [鉁揮 " .. runeName
+			ItemButton.Text = "  [✓] " .. runeName
 			ItemButton.TextColor3 = Color3.fromRGB(80, 255, 150)
 			ItemButton.BackgroundColor3 = Color3.fromRGB(38, 50, 42)
 		else
@@ -420,11 +426,6 @@ end
 DropdownButton.MouseButton1Click:Connect(function()
 	isDropdownOpen = not isDropdownOpen
 	RuneScrollingFrame.Visible = isDropdownOpen
-	if isDropdownOpen then
-		DropdownButton.Text = "  Select Runes 鈻�"
-	else
-		DropdownButton.Text = "  Select Runes 鈻�"
-	end
 end)
 
 DropSwitchBg.MouseButton1Click:Connect(function()
@@ -539,6 +540,7 @@ end
 createSidebarButton("Mining", MiningPage, true)
 createSidebarButton("ESP", ESPPage, false)
 createSidebarButton("Rune", RunePage, false)
+createSidebarButton("Misc", MiscPage, false)
 createSidebarButton("Rejoin", RejoinPage, false)
 
 local isOpen = true
@@ -1447,6 +1449,226 @@ BtnESP2.MouseButton1Click:Connect(function()
 	setToggleState(BgESP2, CircleESP2, isEspNocturniteRunning)
 end)
 
+-- ====================================================================
+-- INTEGRASI FITUR MISC (AUTO DIG & INFINITY JUMP)
+-- ====================================================================
+local selectedDurationMode = Config.MiscDuration or "10s"
+local _G_AutoDig = true
+local isManualPaused = false
+
+-- Tombol Auto Dig & Durasi
+local MiscToggleBtn, MiscBg, MiscCircle = createToggleFeature(MiscPage, "Dig (10s): ON")
+
+local MiscDropdownBtn = Instance.new("TextButton")
+MiscDropdownBtn.Parent = MiscPage
+MiscDropdownBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+MiscDropdownBtn.Size = UDim2.new(1, -8, 0, 32)
+MiscDropdownBtn.TextColor3 = Color3.fromRGB(220, 220, 235)
+MiscDropdownBtn.Text = "  Select Duration ▼"
+MiscDropdownBtn.TextXAlignment = Enum.TextXAlignment.Left
+MiscDropdownBtn.TextSize = 9
+MiscDropdownBtn.Font = Enum.Font.GothamMedium
+MiscDropdownBtn.AutoButtonColor = false
+
+local MiscDropdownCorner = Instance.new("UICorner")
+MiscDropdownCorner.CornerRadius = UDim.new(0, 6)
+MiscDropdownCorner.Parent = MiscDropdownBtn
+
+local MiscDropdownStroke = Instance.new("UIStroke")
+MiscDropdownStroke.Color = Color3.fromRGB(45, 45, 60)
+MiscDropdownStroke.Thickness = 1
+MiscDropdownStroke.Parent = MiscDropdownBtn
+
+local MiscScrollingFrame = Instance.new("ScrollingFrame")
+MiscScrollingFrame.Parent = MiscPage
+MiscScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+MiscScrollingFrame.Size = UDim2.new(1, -8, 0, 110)
+MiscScrollingFrame.BorderSizePixel = 0
+MiscScrollingFrame.Visible = false
+MiscScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 140)
+MiscScrollingFrame.ScrollBarThickness = 2
+MiscScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
+
+local MiscUIListLayout = Instance.new("UIListLayout")
+MiscUIListLayout.Parent = MiscScrollingFrame
+MiscUIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MiscUIListLayout.Padding = UDim.new(0, 3)
+
+local function updateMiscButtonText()
+	local labelPrefix = "Dig (10s)"
+	if selectedDurationMode == "10s" then labelPrefix = "Dig (10s)"
+	elseif selectedDurationMode == "30s" then labelPrefix = "Dig (30s)"
+	elseif selectedDurationMode == "60s" then labelPrefix = "Dig (60s)"
+	elseif selectedDurationMode == "Acak" then labelPrefix = "Dig (Acak)" end
+	
+	local labelComp = MiscToggleBtn:FindFirstChildOfClass("TextLabel")
+	if isManualPaused then
+		if labelComp then labelComp.Text = "Jeda Manual..." end
+		TweenService:Create(MiscBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(241, 196, 15)}):Play()
+		setToggleState(MiscBg, MiscCircle, false)
+	elseif not _G_AutoDig then
+		if labelComp then labelComp.Text = "Jeda 5 Jam..." end
+		TweenService:Create(MiscBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(241, 196, 15)}):Play()
+		setToggleState(MiscBg, MiscCircle, false)
+	else
+		if labelComp then labelComp.Text = labelPrefix .. ": ON" end
+		setToggleState(MiscBg, MiscCircle, true)
+	end
+end
+
+local function createMiscOption(name, callback)
+	local optBtn = Instance.new("TextButton")
+	optBtn.Parent = MiscScrollingFrame
+	optBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
+	optBtn.Size = UDim2.new(1, -4, 0, 28)
+	optBtn.TextColor3 = Color3.fromRGB(180, 180, 195)
+	optBtn.Text = "  " .. name
+	optBtn.TextXAlignment = Enum.TextXAlignment.Left
+	optBtn.TextSize = 9
+	optBtn.Font = Enum.Font.Gotham
+	
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 4)
+	c.Parent = optBtn
+	
+	optBtn.MouseButton1Click:Connect(callback)
+end
+
+createMiscOption("Kerja 10 Detik", function()
+	selectedDurationMode = "10s"
+	Config.MiscDuration = selectedDurationMode
+	saveConfig()
+	updateMiscButtonText()
+	MiscScrollingFrame.Visible = false
+end)
+
+createMiscOption("Kerja 30 Detik", function()
+	selectedDurationMode = "30s"
+	Config.MiscDuration = selectedDurationMode
+	saveConfig()
+	updateMiscButtonText()
+	MiscScrollingFrame.Visible = false
+end)
+
+createMiscOption("Kerja 60 Detik", function()
+	selectedDurationMode = "60s"
+	Config.MiscDuration = selectedDurationMode
+	saveConfig()
+	updateMiscButtonText()
+	MiscScrollingFrame.Visible = false
+end)
+
+createMiscOption("Kerja Acak (10-60s)", function()
+	selectedDurationMode = "Acak"
+	Config.MiscDuration = selectedDurationMode
+	saveConfig()
+	updateMiscButtonText()
+	MiscScrollingFrame.Visible = false
+end)
+
+local isMiscDropdownOpen = false
+MiscDropdownBtn.MouseButton1Click:Connect(function()
+	isMiscDropdownOpen = not isMiscDropdownOpen
+	MiscScrollingFrame.Visible = isMiscDropdownOpen
+end)
+
+MiscToggleBtn.MouseButton1Click:Connect(function()
+	_G_AutoDig = not _G_AutoDig
+	isManualPaused = not _G_AutoDig
+	Config.AutoDigMisc = _G_AutoDig
+	saveConfig()
+	updateMiscButtonText()
+end)
+
+-- ====================================================================
+-- FITUR INFINITY JUMP (DI HALAMAN MISC)
+-- ====================================================================
+local isInfinityJumpRunning = false
+local InfJumpToggleBtn, InfJumpBg, InfJumpCircle = createToggleFeature(MiscPage, "Infinity Jump")
+
+InfJumpToggleBtn.MouseButton1Click:Connect(function()
+	isInfinityJumpRunning = not isInfinityJumpRunning
+	Config.InfinityJump = isInfinityJumpRunning
+	saveConfig()
+	setToggleState(InfJumpBg, InfJumpCircle, isInfinityJumpRunning)
+end)
+
+UserInputService.JumpRequest:Connect(function()
+	if isInfinityJumpRunning then
+		pcall(function()
+			local character = player.Character
+			if character then
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end
+		end)
+	end
+end)
+
+task.spawn(function()
+	while true do
+		if _G_AutoDig and not isManualPaused then
+			local workDuration = 10
+			if selectedDurationMode == "10s" then
+				workDuration = 10
+			elseif selectedDurationMode == "30s" then
+				workDuration = 30
+			elseif selectedDurationMode == "60s" then
+				workDuration = 60
+			elseif selectedDurationMode == "Acak" then
+				workDuration = math.random(10, 60)
+			end
+			
+			local startTime = tick()
+			while _G_AutoDig and not isManualPaused and (tick() - startTime < workDuration) do
+				pcall(function()
+					local curDigReq = nil
+					local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+					if remotes then
+						if remotes:FindFirstChild("DigRequest") then
+							curDigReq = remotes.DigRequest
+						elseif remotes:FindFirstChild("Remotes") and remotes.Remotes:FindFirstChild("DigRequest") then
+							curDigReq = remotes.Remotes.DigRequest
+						end
+					end
+					
+					if curDigReq then
+						local character = player.Character or player.CharacterAdded:Wait()
+						local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+						if humanoidRootPart then
+							curDigReq:FireServer("The Terminus", humanoidRootPart.Position)
+						end
+					end
+				end)
+				task.wait(0.5)
+			end
+			
+			if _G_AutoDig and not isManualPaused then
+				_G_AutoDig = false
+				local labelComp = MiscToggleBtn:FindFirstChildOfClass("TextLabel")
+				if labelComp then labelComp.Text = "Jeda 5 Jam..." end
+				TweenService:Create(MiscBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(241, 196, 15)}):Play()
+				setToggleState(MiscBg, MiscCircle, false)
+				
+				local pauseStartTime = tick()
+				local fiveHoursInSeconds = 5 * 3600
+				while (tick() - pauseStartTime < fiveHoursInSeconds) do
+					if _G_AutoDig or isManualPaused then break end
+					task.wait(1)
+				end
+				
+				if not isManualPaused then
+					_G_AutoDig = true
+					updateMiscButtonText()
+				end
+			end
+		end
+		task.wait(0.5)
+	end
+end)
+
 task.spawn(function()
 	task.wait(0.5)
 	
@@ -1502,6 +1724,15 @@ task.spawn(function()
 		isEspNocturniteRunning = true
 		setToggleState(BgESP2, CircleESP2, true, true)
 	end
+
+	if Config.InfinityJump then
+		isInfinityJumpRunning = true
+		setToggleState(InfJumpBg, InfJumpCircle, true, true)
+	end
+	
+	-- Memuat ulang status & durasi tombol Misc yang tersimpan di Config
+	selectedDurationMode = Config.MiscDuration or "10s"
+	updateMiscButtonText()
 end)
 
 print("Mine A Mountain Berhasil Dimuat!")
