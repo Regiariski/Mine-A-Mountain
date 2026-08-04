@@ -33,7 +33,8 @@ local Config = {
 	AutoDigDuration = "60s",
 	InfinityJump = false,
 	AutoLowServer = false,
-	HopDelay = "60s"
+	HopDelay = "60s",
+	OtomatisMinimize = true -- Default aktif otomatis minimize
 }
 
 local function saveConfig()
@@ -95,7 +96,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BackgroundTransparency = 0.05
 MainFrame.Position = UDim2.new(0, 62, 0, 10)
 MainFrame.Size = UDim2.new(0, 240, 0, 275)
-MainFrame.Visible = true
+MainFrame.Visible = not Config.OtomatisMinimize -- Menyesuaikan dengan status config Otomatis Minimize
 
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 10)
@@ -171,7 +172,7 @@ local function createPageContainer()
 	container.BackgroundTransparency = 1
 	container.Position = UDim2.new(0, 98, 0, 42)
 	container.Size = UDim2.new(1, -106, 1, -50)
-	container.CanvasSize = UDim2.new(0, 0, 0, 480)
+	container.CanvasSize = UDim2.new(0, 0, 0, 520)
 	container.ScrollBarThickness = 2
 	container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 	container.Visible = false
@@ -494,7 +495,7 @@ createSidebarButton("Rune", RunePage, false)
 createSidebarButton("Misc", MiscPage, false)
 createSidebarButton("Rejoin", RejoinPage, false)
 
-local isOpen = true
+local isOpen = not Config.OtomatisMinimize
 ToggleBtn.MouseButton1Click:Connect(function()
 	isOpen = not isOpen
 	MainFrame.Visible = isOpen
@@ -1478,8 +1479,17 @@ BtnNocturnite.MouseButton1Click:Connect(function()
 end)
 
 -- ====================================================================
--- MISC AUTO DIG & AUTO LOW SERVER (FIXED & IMPROVED)
+-- MISC AUTO DIG, OTOMATIS MINIMIZE & AUTO LOW SERVER
 -- ====================================================================
+
+-- Tombol Otomatis Minimize di bagian Misc
+local BtnAutoMin, BgAutoMin, CircleAutoMin = createToggleFeature(MiscPage, "Otomatis Minimize")
+BtnAutoMin.MouseButton1Click:Connect(function()
+	Config.OtomatisMinimize = not Config.OtomatisMinimize
+	saveConfig()
+	setToggleState(BgAutoMin, CircleAutoMin, Config.OtomatisMinimize)
+end)
+
 local selectedAutoDigDuration = Config.AutoDigDuration or "60s"
 local isAutoDigRunning = Config.AutoDigMisc
 local autoDigSession = 0
@@ -1754,7 +1764,6 @@ HopDropdownBtn.MouseButton1Click:Connect(function()
 	HopScrollingFrame.Visible = isHopDropdownOpen
 end)
 
--- Deteksi Part Nocturnite yang diperbarui & lebih akurat via GetDescendants
 local function hasNocturniteToFarm()
 	if isNocturniteFarmRunning then return true end
 	local found = false
@@ -1856,6 +1865,12 @@ end)
 -- Load Config Inisialisasi
 task.spawn(function()
 	task.wait(0.5)
+	
+	-- Inisialisasi Otomatis Minimize Toggle UI State
+	if Config.OtomatisMinimize ~= nil then
+		setToggleState(BgAutoMin, CircleAutoMin, Config.OtomatisMinimize, true)
+	end
+
 	if Config.AutoDrop then isAutoDropRunning = true setToggleState(Bg1, Circle1, true, true) task.spawn(runAutoDrop) end
 	if Config.InstanMineCrystal then isInstanMineRunning = true setToggleState(BgInstanMine, CircleInstanMine, true, true) end
 	if Config.AutoSell then isSellRunning = true setToggleState(Bg3, Circle3, true, true) end
