@@ -30,11 +30,11 @@ local Config = {
 	FarmingCrystal = false,
 	CrystalMutasiTerminus = false,
 	AutoDigMisc = true,
-	AutoDigDuration = "60s",
+	AutoDigDuration = "1s",
 	InfinityJump = false,
 	AutoLowServer = false,
-	HopDelay = "60s",
-	OtomatisMinimize = true -- Default aktif otomatis minimize
+	HopDelay = "1s",
+	OtomatisMinimize = true
 }
 
 local function saveConfig()
@@ -96,7 +96,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BackgroundTransparency = 0.05
 MainFrame.Position = UDim2.new(0, 62, 0, 10)
 MainFrame.Size = UDim2.new(0, 240, 0, 275)
-MainFrame.Visible = not Config.OtomatisMinimize -- Menyesuaikan dengan status config Otomatis Minimize
+MainFrame.Visible = not Config.OtomatisMinimize
 
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 10)
@@ -634,7 +634,6 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
--- Farming Crystal Logic
 local isFarmingCrystalRunning = false
 local noclipConnectionCrystal
 local gravityConnectionCrystal
@@ -846,7 +845,6 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
     end
 end)
 
--- Crystal Mutasi Terminus Logic
 local isCrystalTerminusRunning = false
 local noclipConnectionTerminus
 local gravityConnectionTerminus
@@ -1047,7 +1045,6 @@ BtnCrystalTerminus.MouseButton1Click:Connect(function()
     end
 end)
 
--- Collect Rune Logic
 local isCollectRuneRunning = false
 local isCollecting = false
 local noclipConnection = RunService.Stepped:Connect(function()
@@ -1125,7 +1122,6 @@ BtnRune.MouseButton1Click:Connect(function()
 	if not isCollectRuneRunning then isCollecting = false end
 end)
 
--- ESP Mutasi Terminus & Nocturnite
 local isEspTerminusRunning = false
 
 local function addTerminusESP(crystal)
@@ -1343,7 +1339,6 @@ BtnESP2.MouseButton1Click:Connect(function()
 	if not isEspNocturniteRunning then clearAllNocturniteESP() end
 end)
 
--- Nocturnite Farm Handler
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
@@ -1482,7 +1477,6 @@ end)
 -- MISC AUTO DIG, OTOMATIS MINIMIZE & AUTO LOW SERVER
 -- ====================================================================
 
--- Tombol Otomatis Minimize di bagian Misc
 local BtnAutoMin, BgAutoMin, CircleAutoMin = createToggleFeature(MiscPage, "Otomatis Minimize")
 BtnAutoMin.MouseButton1Click:Connect(function()
 	Config.OtomatisMinimize = not Config.OtomatisMinimize
@@ -1490,7 +1484,7 @@ BtnAutoMin.MouseButton1Click:Connect(function()
 	setToggleState(BgAutoMin, CircleAutoMin, Config.OtomatisMinimize)
 end)
 
-local selectedAutoDigDuration = Config.AutoDigDuration or "60s"
+local selectedAutoDigDuration = Config.AutoDigDuration or "1s"
 local isAutoDigRunning = Config.AutoDigMisc
 local autoDigSession = 0
 
@@ -1513,10 +1507,10 @@ local AutoDigDropdownStroke = Instance.new("UIStroke") AutoDigDropdownStroke.Col
 local AutoDigScrollingFrame = Instance.new("ScrollingFrame")
 AutoDigScrollingFrame.Parent = MiscPage
 AutoDigScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-AutoDigScrollingFrame.Size = UDim2.new(1, -8, 0, 140)
+AutoDigScrollingFrame.Size = UDim2.new(1, -8, 0, 160)
 AutoDigScrollingFrame.BorderSizePixel = 0
 AutoDigScrollingFrame.Visible = false
-AutoDigScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 180)
+AutoDigScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 210)
 AutoDigScrollingFrame.ScrollBarThickness = 2
 AutoDigScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 
@@ -1550,6 +1544,7 @@ local function createAutoDigOption(name, val, callback)
 	optBtn.MouseButton1Click:Connect(callback)
 end
 
+createAutoDigOption("1 Detik", "1s", function() selectedAutoDigDuration = "1s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 1s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("10 Detik", "10s", function() selectedAutoDigDuration = "10s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 10s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("20 Detik", "20s", function() selectedAutoDigDuration = "20s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 20s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("30 Detik", "30s", function() selectedAutoDigDuration = "30s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 30s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
@@ -1594,19 +1589,31 @@ task.spawn(function()
 end)
 
 local function getDurationSeconds(durStr)
-	if durStr == "10s" then return 10
+	if durStr == "1s" then return 1
+	elseif durStr == "10s" then return 10
 	elseif durStr == "20s" then return 20
 	elseif durStr == "30s" then return 30
 	elseif durStr == "40s" then return 40
 	elseif durStr == "60s" then return 60
 	end
-	return 60
+	return 1
 end
 
 local function startAutoDigTimer()
 	autoDigSession = autoDigSession + 1
 	local currentSession = autoDigSession
 	local totalSeconds = getDurationSeconds(selectedAutoDigDuration)
+	
+	if totalSeconds == 0 then
+		task.spawn(function()
+			local labelComp = MiscToggleBtn:FindFirstChildOfClass("TextLabel")
+			if labelComp then
+				labelComp.Text = "Auto Dig (0s): ON"
+			end
+		end)
+		return
+	end
+
 	local timeLeft = totalSeconds
 	
 	task.spawn(function()
@@ -1676,9 +1683,9 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- ====================================================================
--- AUTO LOW SERVER (FIXED STATUS BAR & NOCTURNITE DETECTION)
+-- AUTO LOW SERVER
 -- ====================================================================
-local selectedHopDelayMode = Config.HopDelay or "60s"
+local selectedHopDelayMode = Config.HopDelay or "1s"
 local isAutoLowServerRunning = false
 
 local AutoLowServerToggleBtn, AutoLowServerBg, AutoLowServerCircle = createToggleFeature(MiscPage, "Auto Hop: ON")
@@ -1717,7 +1724,7 @@ HopScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 HopScrollingFrame.Size = UDim2.new(1, -8, 0, 160)
 HopScrollingFrame.BorderSizePixel = 0
 HopScrollingFrame.Visible = false
-HopScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 210)
+HopScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 240)
 HopScrollingFrame.ScrollBarThickness = 2
 HopScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 
@@ -1728,7 +1735,7 @@ HopUIListLayout.Padding = UDim.new(0, 3)
 
 local function updateHopButtonText()
 	local labelComp = AutoLowServerToggleBtn:FindFirstChildOfClass("TextLabel")
-	local timeStr = selectedHopDelayMode or "60s"
+	local timeStr = selectedHopDelayMode or "1s"
 	if labelComp then
 		if isAutoLowServerRunning then
 			labelComp.Text = "Auto Hop (" .. timeStr .. "): ON"
@@ -1752,6 +1759,7 @@ local function createHopOption(name, val, callback)
 	optBtn.MouseButton1Click:Connect(callback)
 end
 
+createHopOption("Tunggu 1 Detik", "1s", function() selectedHopDelayMode = "1s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 30 Detik", "30s", function() selectedHopDelayMode = "30s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 60 Detik", "60s", function() selectedHopDelayMode = "60s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 120 Detik", "120s", function() selectedHopDelayMode = "120s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
@@ -1785,8 +1793,9 @@ local function hasNocturniteToFarm()
 end
 
 local function HopLowServer()
-	local maxWaitTime = 60
-	if selectedHopDelayMode == "30s" then maxWaitTime = 30
+	local maxWaitTime = 1
+	if selectedHopDelayMode == "1s" then maxWaitTime = 1
+	elseif selectedHopDelayMode == "30s" then maxWaitTime = 30
 	elseif selectedHopDelayMode == "60s" then maxWaitTime = 60
 	elseif selectedHopDelayMode == "120s" then maxWaitTime = 120
 	elseif selectedHopDelayMode == "180s" then maxWaitTime = 180
@@ -1862,11 +1871,9 @@ AutoLowServerToggleBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Load Config Inisialisasi
 task.spawn(function()
 	task.wait(0.5)
 	
-	-- Inisialisasi Otomatis Minimize Toggle UI State
 	if Config.OtomatisMinimize ~= nil then
 		setToggleState(BgAutoMin, CircleAutoMin, Config.OtomatisMinimize, true)
 	end
@@ -1894,7 +1901,7 @@ task.spawn(function()
 	if Config.NocturniteESP then isEspNocturniteRunning = true setToggleState(BgESP2, CircleESP2, true, true) end
 	if Config.InfinityJump then isInfinityJumpRunning = true setToggleState(InfJumpBg, InfJumpCircle, true, true) end
 
-	selectedAutoDigDuration = Config.AutoDigDuration or "60s"
+	selectedAutoDigDuration = Config.AutoDigDuration or "1s"
 	AutoDigDropdownBtn.Text = "  Auto Dig Time: " .. selectedAutoDigDuration .. " ▼"
 	if Config.AutoDigMisc then
 		isAutoDigRunning = true
@@ -1915,7 +1922,7 @@ task.spawn(function()
 		task.spawn(HopLowServer)
 	end
 	
-	selectedHopDelayMode = Config.HopDelay or "60s"
+	selectedHopDelayMode = Config.HopDelay or "1s"
 	updateHopButtonText()
 end)
 
