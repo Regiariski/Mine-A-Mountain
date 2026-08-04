@@ -1,5 +1,5 @@
 -- ====================================================================
--- Mine A Mountain | Rgx Hub (Full Fixed Version - Auto Dig & Auto Low Server)
+-- Mine A Mountain | Rgx Hub (Full Fixed Version - Auto Dig, Auto Low Server & ESP InstantMine)
 -- ====================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -26,14 +26,16 @@ local Config = {
 	CollectRune = false,
 	MutasiTerminus = false,
 	NocturniteESP = false,
+	InstanMineESP = false,
+	FastDig = false,
 	DropRune = false,
 	FarmingCrystal = false,
 	CrystalMutasiTerminus = false,
 	AutoDigMisc = true,
-	AutoDigDuration = "1s",
+	AutoDigDuration = "60s",
 	InfinityJump = false,
 	AutoLowServer = false,
-	HopDelay = "1s",
+	HopDelay = "60s",
 	OtomatisMinimize = true
 }
 
@@ -274,6 +276,8 @@ local BtnRune, BgRune, CircleRune = createToggleFeature(MiningPage, "Collect Run
 
 local BtnESP1, BgESP1, CircleESP1 = createToggleFeature(ESPPage, "Mutasi Terminus")
 local BtnESP2, BgESP2, CircleESP2 = createToggleFeature(ESPPage, "Nocturnite")
+local BtnInstanMineESP, BgInstanMineESP, CircleInstanMineESP = createToggleFeature(ESPPage, "Instan Mine")
+local BtnFastDig, BgFastDig, CircleFastDig = createToggleFeature(ESPPage, "Fast Dig")
 
 local runeList = {
 	"Weight Rune", "Detonation Rune", "Preservation Rune", "Colossus Rune",
@@ -314,7 +318,7 @@ DropSwitchBg.Parent = DropRuneContainer
 
 local DropSwitchBgCorner = Instance.new("UICorner") DropSwitchBgCorner.CornerRadius = UDim.new(1, 0) DropSwitchBgCorner.Parent = DropSwitchBg
 local DropSwitchCircle = Instance.new("Frame") DropSwitchCircle.Size = UDim2.new(0, 16, 0, 16) DropSwitchCircle.Position = UDim2.new(0, 2, 0.5, -8) DropSwitchCircle.BackgroundColor3 = Color3.fromRGB(150, 150, 170) DropSwitchCircle.BorderSizePixel = 0 DropSwitchCircle.Parent = DropSwitchBg
-local DropSwitchCircleCorner = Instance.new("UICorner") DropSwitchCircleCorner.CornerRadius = UDim.new(1, 0) DropSwitchCircleCorner.Parent = DropSwitchCircle
+local DropSwitchCircleCorner = Instance.new("UICorner") DropSwitchCircleCorner.CornerRadius = UDim.new(1, 0) DropSwitchCircleCorner.Parent = DropSwitchBg
 
 local DropdownButton = Instance.new("TextButton")
 DropdownButton.Parent = RunePage
@@ -539,33 +543,75 @@ end)
 
 local isInstanMineRunning = false
 task.spawn(function()
-	while true do
-		task.wait(0.3)
-		if isInstanMineRunning then
-			pcall(function()
-				local character = player.Character
-				if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-				local targetRadius = 20 
-				for _, v in ipairs(Workspace:GetDescendants()) do
-					if v:IsA("ProximityPrompt") then
-						local part = v.Parent
-						if part and part:IsA("BasePart") then
-							local objectName = part.Name:lower()
-							local parentName = part.Parent and part.Parent.Name:lower() or ""
-							if objectName:find("crystal") or objectName:find("rune") or parentName:find("crystal") or parentName:find("rune") then
-								local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
-								if distance <= targetRadius then
-									v.MaxActivationDistance = targetRadius
-									v.HoldDuration = 0
-									fireproximityprompt(v)
-								end
-							end
-						end
-					end
-				end
-			end)
-		end
-	end
+    while task.wait(0.3) do
+        if isInstanMineRunning then
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                
+                local targetRadius = 100 
+                local rootPos = character.HumanoidRootPart.Position
+
+                local function isValidCrystalPrompt(prompt)
+                    local parent = prompt.Parent
+                    local ancestor = parent
+                    
+                    while ancestor and ancestor ~= workspace do
+                        local name = ancestor.Name
+                        if name == "Crystals" or name == "DroppedCrystals" then
+                            return true
+                        end
+                        ancestor = ancestor.Parent
+                    end
+                    return false
+                end
+
+                local function checkAndFire(v)
+                    if v:IsA("ProximityPrompt") and isValidCrystalPrompt(v) then
+                        local parent = v.Parent
+                        local targetPos = nil
+
+                        if parent then
+                            if parent:IsA("BasePart") then
+                                targetPos = parent.Position
+                            elseif parent:IsA("Model") then
+                                local primary = parent.PrimaryPart or parent:FindFirstChildWhichIsA("BasePart", true)
+                                if primary then
+                                    targetPos = primary.Position
+                                end
+                            end
+                        end
+
+                        if targetPos then
+                            local distance = (rootPos - targetPos).Magnitude
+                            if distance <= targetRadius then
+                                v.MaxActivationDistance = targetRadius
+                                v.HoldDuration = 0
+                                fireproximityprompt(v)
+                            end
+                        end
+                    end
+                end
+
+                local things = workspace:FindFirstChild("Things")
+                local crystalsFolder = things and things:FindFirstChild("Crystals")
+                local droppedFolder = workspace:FindFirstChild("DroppedCrystals")
+
+                if crystalsFolder then
+                    for _, v in ipairs(crystalsFolder:GetDescendants()) do
+                        checkAndFire(v)
+                    end
+                end
+
+                if droppedFolder then
+                    for _, v in ipairs(droppedFolder:GetDescendants()) do
+                        checkAndFire(v)
+                    end
+                end
+            end)
+        end
+    end
 end)
 
 BtnInstanMine.MouseButton1Click:Connect(function()
@@ -634,6 +680,7 @@ Btn3.MouseButton1Click:Connect(function()
 	setToggleState(Bg3, Circle3, isSellRunning)
 end)
 
+-- Farming Crystal Logic
 local isFarmingCrystalRunning = false
 local noclipConnectionCrystal
 local gravityConnectionCrystal
@@ -845,6 +892,7 @@ BtnFarmingCrystal.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Crystal Mutasi Terminus Logic
 local isCrystalTerminusRunning = false
 local noclipConnectionTerminus
 local gravityConnectionTerminus
@@ -1045,6 +1093,7 @@ BtnCrystalTerminus.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Collect Rune Logic
 local isCollectRuneRunning = false
 local isCollecting = false
 local noclipConnection = RunService.Stepped:Connect(function()
@@ -1122,6 +1171,7 @@ BtnRune.MouseButton1Click:Connect(function()
 	if not isCollectRuneRunning then isCollecting = false end
 end)
 
+-- ESP Mutasi Terminus & Nocturnite
 local isEspTerminusRunning = false
 
 local function addTerminusESP(crystal)
@@ -1339,6 +1389,130 @@ BtnESP2.MouseButton1Click:Connect(function()
 	if not isEspNocturniteRunning then clearAllNocturniteESP() end
 end)
 
+-- ====================================================================
+-- INSTAN MINE (INSTANT MINE CONTROLLER BYPASS DI TAB ESP)
+-- ====================================================================
+local isInstanMineESPRunning = false
+local imTargets = {
+    { parent = "Things", child = "Crystals" },
+    { parent = nil, child = "DroppedCrystals" },
+    { parent = nil, child = "Crystals" }
+}
+local hookedFoldersIM = {}
+
+local function patchPromptIM(p6)
+    if p6:IsA("ProximityPrompt") then
+        local v7 = p6:GetAttribute("IMC_OrigHold")
+        if typeof(v7) ~= "number" then
+            p6:SetAttribute("IMC_OrigHold", p6.HoldDuration)
+        end
+        if isInstanMineESPRunning then
+            p6.HoldDuration = 0
+        end
+    end
+end
+
+local function restorePromptIM(p6)
+    if p6:IsA("ProximityPrompt") then
+        local orig = p6:GetAttribute("IMC_OrigHold")
+        if typeof(orig) == "number" then
+            p6.HoldDuration = orig
+        end
+    end
+end
+
+local function hookFolderIM(p9)
+    if not hookedFoldersIM[p9] then
+        hookedFoldersIM[p9] = true
+        p9.DescendantAdded:Connect(function(desc)
+            if isInstanMineESPRunning then
+                patchPromptIM(desc)
+            end
+        end)
+    end
+    for _, v12 in ipairs(p9:GetDescendants()) do
+        if isInstanMineESPRunning then
+            patchPromptIM(v12)
+        else
+            restorePromptIM(v12)
+        end
+    end
+end
+
+local function sweepHomesIM()
+    for _, v15 in ipairs(imTargets) do
+        local v16 = v15.parent and Workspace:FindFirstChild(v15.parent) or Workspace
+        if v16 then
+            v16 = v16:FindFirstChild(v15.child)
+        end
+        if v16 then
+            hookFolderIM(v16)
+        end
+    end
+end
+
+task.spawn(function()
+    Workspace.DescendantAdded:Connect(function(p20)
+        if p20:IsA("Folder") or p20:IsA("Model") then
+            for _, v21 in ipairs(imTargets) do
+                if p20.Name == v21.child and (v21.parent and Workspace:FindFirstChild(v21.parent) or Workspace) == p20.Parent then
+                    task.wait(0.05)
+                    hookFolderIM(p20)
+                end
+            end
+        end
+    end)
+end)
+
+BtnInstanMineESP.MouseButton1Click:Connect(function()
+	isInstanMineESPRunning = not isInstanMineESPRunning
+	Config.InstanMineESP = isInstanMineESPRunning
+	saveConfig()
+	setToggleState(BgInstanMineESP, CircleInstanMineESP, isInstanMineESPRunning)
+	
+	if isInstanMineESPRunning then
+		sweepHomesIM()
+	else
+		for folder, _ in pairs(hookedFoldersIM) do
+			if folder and folder.Parent then
+				for _, v in ipairs(folder:GetDescendants()) do
+					restorePromptIM(v)
+				end
+			end
+		end
+	end
+end)
+
+-- ====================================================================
+-- FAST DIG (AUTO INFINITE FAST MINE BOOST)
+-- ====================================================================
+local isFastDigRunning = false
+
+task.spawn(function()
+	local playerData = player:WaitForChild("PlayerData", 30)
+	local realStats = playerData and playerData:WaitForChild("RealStats", 30)
+	local boostSeconds = realStats and realStats:WaitForChild("FastMineBoostSeconds", 30)
+
+	while true do
+		if isFastDigRunning and boostSeconds then
+			pcall(function()
+				if boostSeconds.Value < 3600 then
+					boostSeconds.Value = 99999
+				end
+			end)
+		end
+		task.wait(2)
+	end
+end)
+
+BtnFastDig.MouseButton1Click:Connect(function()
+	isFastDigRunning = not isFastDigRunning
+	Config.FastDig = isFastDigRunning
+	saveConfig()
+	setToggleState(BgFastDig, CircleFastDig, isFastDigRunning)
+end)
+
+-- Nocturnite Farm Handler
 local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
@@ -1484,7 +1658,7 @@ BtnAutoMin.MouseButton1Click:Connect(function()
 	setToggleState(BgAutoMin, CircleAutoMin, Config.OtomatisMinimize)
 end)
 
-local selectedAutoDigDuration = Config.AutoDigDuration or "1s"
+local selectedAutoDigDuration = Config.AutoDigDuration or "60s"
 local isAutoDigRunning = Config.AutoDigMisc
 local autoDigSession = 0
 
@@ -1507,10 +1681,10 @@ local AutoDigDropdownStroke = Instance.new("UIStroke") AutoDigDropdownStroke.Col
 local AutoDigScrollingFrame = Instance.new("ScrollingFrame")
 AutoDigScrollingFrame.Parent = MiscPage
 AutoDigScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-AutoDigScrollingFrame.Size = UDim2.new(1, -8, 0, 160)
+AutoDigScrollingFrame.Size = UDim2.new(1, -8, 0, 140)
 AutoDigScrollingFrame.BorderSizePixel = 0
 AutoDigScrollingFrame.Visible = false
-AutoDigScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 210)
+AutoDigScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 180)
 AutoDigScrollingFrame.ScrollBarThickness = 2
 AutoDigScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 
@@ -1544,7 +1718,6 @@ local function createAutoDigOption(name, val, callback)
 	optBtn.MouseButton1Click:Connect(callback)
 end
 
-createAutoDigOption("1 Detik", "1s", function() selectedAutoDigDuration = "1s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 1s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("10 Detik", "10s", function() selectedAutoDigDuration = "10s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 10s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("20 Detik", "20s", function() selectedAutoDigDuration = "20s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 20s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
 createAutoDigOption("30 Detik", "30s", function() selectedAutoDigDuration = "30s" Config.AutoDigDuration = selectedAutoDigDuration saveConfig() AutoDigDropdownBtn.Text = "  Auto Dig Time: 30s ▼" updateAutoDigButtonText() AutoDigScrollingFrame.Visible = false end)
@@ -1589,31 +1762,19 @@ task.spawn(function()
 end)
 
 local function getDurationSeconds(durStr)
-	if durStr == "1s" then return 1
-	elseif durStr == "10s" then return 10
+	if durStr == "10s" then return 10
 	elseif durStr == "20s" then return 20
 	elseif durStr == "30s" then return 30
 	elseif durStr == "40s" then return 40
 	elseif durStr == "60s" then return 60
 	end
-	return 1
+	return 60
 end
 
 local function startAutoDigTimer()
 	autoDigSession = autoDigSession + 1
 	local currentSession = autoDigSession
 	local totalSeconds = getDurationSeconds(selectedAutoDigDuration)
-	
-	if totalSeconds == 0 then
-		task.spawn(function()
-			local labelComp = MiscToggleBtn:FindFirstChildOfClass("TextLabel")
-			if labelComp then
-				labelComp.Text = "Auto Dig (0s): ON"
-			end
-		end)
-		return
-	end
-
 	local timeLeft = totalSeconds
 	
 	task.spawn(function()
@@ -1683,9 +1844,9 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- ====================================================================
--- AUTO LOW SERVER
+-- AUTO LOW SERVER (FIXED STATUS BAR & NOCTURNITE DETECTION)
 -- ====================================================================
-local selectedHopDelayMode = Config.HopDelay or "1s"
+local selectedHopDelayMode = Config.HopDelay or "60s"
 local isAutoLowServerRunning = false
 
 local AutoLowServerToggleBtn, AutoLowServerBg, AutoLowServerCircle = createToggleFeature(MiscPage, "Auto Hop: ON")
@@ -1724,7 +1885,7 @@ HopScrollingFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 HopScrollingFrame.Size = UDim2.new(1, -8, 0, 160)
 HopScrollingFrame.BorderSizePixel = 0
 HopScrollingFrame.Visible = false
-HopScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 240)
+HopScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 210)
 HopScrollingFrame.ScrollBarThickness = 2
 HopScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80)
 
@@ -1735,7 +1896,7 @@ HopUIListLayout.Padding = UDim.new(0, 3)
 
 local function updateHopButtonText()
 	local labelComp = AutoLowServerToggleBtn:FindFirstChildOfClass("TextLabel")
-	local timeStr = selectedHopDelayMode or "1s"
+	local timeStr = selectedHopDelayMode or "60s"
 	if labelComp then
 		if isAutoLowServerRunning then
 			labelComp.Text = "Auto Hop (" .. timeStr .. "): ON"
@@ -1759,7 +1920,6 @@ local function createHopOption(name, val, callback)
 	optBtn.MouseButton1Click:Connect(callback)
 end
 
-createHopOption("Tunggu 1 Detik", "1s", function() selectedHopDelayMode = "1s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 30 Detik", "30s", function() selectedHopDelayMode = "30s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 60 Detik", "60s", function() selectedHopDelayMode = "60s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
 createHopOption("Tunggu 120 Detik", "120s", function() selectedHopDelayMode = "120s" Config.HopDelay = selectedHopDelayMode saveConfig() updateHopButtonText() HopScrollingFrame.Visible = false end)
@@ -1793,9 +1953,8 @@ local function hasNocturniteToFarm()
 end
 
 local function HopLowServer()
-	local maxWaitTime = 1
-	if selectedHopDelayMode == "1s" then maxWaitTime = 1
-	elseif selectedHopDelayMode == "30s" then maxWaitTime = 30
+	local maxWaitTime = 60
+	if selectedHopDelayMode == "30s" then maxWaitTime = 30
 	elseif selectedHopDelayMode == "60s" then maxWaitTime = 60
 	elseif selectedHopDelayMode == "120s" then maxWaitTime = 120
 	elseif selectedHopDelayMode == "180s" then maxWaitTime = 180
@@ -1871,6 +2030,7 @@ AutoLowServerToggleBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
+-- Load Config Inisialisasi
 task.spawn(function()
 	task.wait(0.5)
 	
@@ -1899,9 +2059,15 @@ task.spawn(function()
 		end)
 	end
 	if Config.NocturniteESP then isEspNocturniteRunning = true setToggleState(BgESP2, CircleESP2, true, true) end
+	if Config.InstanMineESP then
+		isInstanMineESPRunning = true
+		setToggleState(BgInstanMineESP, CircleInstanMineESP, true, true)
+		sweepHomesIM()
+	end
+	if Config.FastDig then isFastDigRunning = true setToggleState(BgFastDig, CircleFastDig, true, true) end
 	if Config.InfinityJump then isInfinityJumpRunning = true setToggleState(InfJumpBg, InfJumpCircle, true, true) end
 
-	selectedAutoDigDuration = Config.AutoDigDuration or "1s"
+	selectedAutoDigDuration = Config.AutoDigDuration or "60s"
 	AutoDigDropdownBtn.Text = "  Auto Dig Time: " .. selectedAutoDigDuration .. " ▼"
 	if Config.AutoDigMisc then
 		isAutoDigRunning = true
@@ -1922,7 +2088,7 @@ task.spawn(function()
 		task.spawn(HopLowServer)
 	end
 	
-	selectedHopDelayMode = Config.HopDelay or "1s"
+	selectedHopDelayMode = Config.HopDelay or "60s"
 	updateHopButtonText()
 end)
 
