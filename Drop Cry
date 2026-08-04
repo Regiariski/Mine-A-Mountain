@@ -1512,8 +1512,15 @@ BtnFastDig.MouseButton1Click:Connect(function()
 	setToggleState(BgFastDig, CircleFastDig, isFastDigRunning)
 end)
 
--- Nocturnite Farm Handler
-local nocturniteFolder = Workspace:WaitForChild("MountainDecorations"):WaitForChild("Boulders"):WaitForChild("Nocturnite")
+-- Nocturnite Farm Handler (Safe Retrieval for servers without Nocturnite)
+local function getNocturniteFolder()
+	local mountain = Workspace:FindFirstChild("MountainDecorations")
+	if not mountain then return nil end
+	local boulders = mountain:FindFirstChild("Boulders")
+	if not boulders then return nil end
+	return boulders:FindFirstChild("Nocturnite")
+end
+
 local digRequest = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DigRequest")
 
 local TWEEN_SPEED_NOC = 90 
@@ -1603,7 +1610,8 @@ local function farmSinglePart(partName, targetPart)
 		end
 		digRequest:FireServer("The Terminus", targetPart.Position)
 		task.wait(0.3)
-		targetPart = nocturniteFolder:FindFirstChild(partName)
+		local folder = getNocturniteFolder()
+		targetPart = folder and folder:FindFirstChild(partName) or nil
 	end
 	stopFloating()
 end
@@ -1611,17 +1619,20 @@ end
 local function farmAllCells()
 	while isNocturniteFarmRunning do
 		local foundAny = false
-		local baseCell = nocturniteFolder:FindFirstChild("Nocturnite_cell")
-		if baseCell and baseCell:IsA("BasePart") and isNocturniteFarmRunning then
-			foundAny = true
-			farmSinglePart("Nocturnite_cell", baseCell)
-		end
-		for i = 1, 29 do
-			if not isNocturniteFarmRunning then break end
-			local targetPart = nocturniteFolder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
-			if targetPart and targetPart:IsA("BasePart") and isNocturniteFarmRunning then
+		local folder = getNocturniteFolder()
+		if folder then
+			local baseCell = folder:FindFirstChild("Nocturnite_cell")
+			if baseCell and baseCell:IsA("BasePart") and isNocturniteFarmRunning then
 				foundAny = true
-				farmSinglePart(string.format("Nocturnite_cell.%03d", i), targetPart)
+				farmSinglePart("Nocturnite_cell", baseCell)
+			end
+			for i = 1, 29 do
+				if not isNocturniteFarmRunning then break end
+				local targetPart = folder:FindFirstChild(string.format("Nocturnite_cell.%03d", i))
+				if targetPart and targetPart:IsA("BasePart") and isNocturniteFarmRunning then
+					foundAny = true
+					farmSinglePart(string.format("Nocturnite_cell.%03d", i), targetPart)
+				end
 			end
 		end
 		if not foundAny and isNocturniteFarmRunning then
@@ -1933,16 +1944,12 @@ HopDropdownBtn.MouseButton1Click:Connect(function()
 end)
 
 local function hasNocturniteToFarm()
-	if isNocturniteFarmRunning then return true end
 	local found = false
 	pcall(function()
-		local folder = Workspace:FindFirstChild("MountainDecorations") 
-			and Workspace.MountainDecorations:FindFirstChild("Boulders") 
-			and Workspace.MountainDecorations.Boulders:FindFirstChild("Nocturnite")
-			
+		local folder = getNocturniteFolder()
 		if folder then
 			for _, obj in ipairs(folder:GetDescendants()) do
-				if obj:IsA("BasePart") and string.lower(obj.Name):find("nocturnite") then
+				if obj:IsA("BasePart") then
 					found = true
 					break
 				end
