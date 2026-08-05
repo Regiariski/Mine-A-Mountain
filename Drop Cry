@@ -1401,9 +1401,9 @@ task.spawn(function()
 					local pos = currentHrp.Position
 					local feetPos = pos - Vector3.new(0, 3, 0)
 					if selectedClearMountainTool == "The Terminus" then
-						digRequest:FireServer("The Terminus", vector.create(pos.X, pos.Y, pos.Z))
+						digRequest:FireServer("The Terminus", Vector3.new(pos.X, pos.Y, pos.Z))
 					elseif selectedClearMountainTool == "Sledge Hammer" then
-						sledgeSwing:FireServer(vector.create(feetPos.X, feetPos.Y, feetPos.Z))
+						sledgeSwing:FireServer(Vector3.new(feetPos.X, feetPos.Y, feetPos.Z))
 					end
 				end
 			end)
